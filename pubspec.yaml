@@ -61,6 +61,26 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # 随包 seed 数据（由 tools/seed_assets.py 从 ../data-repo 生成，约 25 MB）。
+  # 注意：Flutter 的 assets 目录声明不递归，下面的清单由脚本自动维护，勿手改。
+  assets:
+    # >>> seed-assets:begin >>>
+    - assets/seed/
+    - assets/seed/heroes/
+    - assets/seed/images/gjf/av/
+    - assets/seed/images/hlsgs/av/
+    - assets/seed/images/msgs/av/
+    - assets/seed/images/msgs/icons/packages/
+    - assets/seed/images/sgs/av/
+    - assets/seed/images/sgs/icons/category/
+    - assets/seed/images/sgs/icons/kingdom/
+    - assets/seed/images/sgs/icons/packages/
+    - assets/seed/images/sgs/icons/rarity/
+    - assets/seed/images/sgsol/av/
+    - assets/seed/images/wxmini/av/
+    - assets/seed/meta/
+    # <<< seed-assets:end <<<
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
