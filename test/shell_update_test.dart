@@ -195,4 +195,38 @@ void main() {
     expect((await _fetch(port, '/heroes/sgsol-001.json')).$1, 404);
     service.dispose();
   });
+
+  test('所有源首轮 403、第二轮恢复时仍能完成更新', () async {
+    final content = _b('retry-ok');
+    var calls = 0;
+    final client = MockClient((req) async {
+      if (req.url.path.endsWith('/manifest.json')) {
+        return http.Response.bytes(
+            utf8.encode(jsonEncode(_manifest('2026.11.12', {
+              'index.html': content,
+            }))),
+            200);
+      }
+      calls++;
+      // 第一轮两个源都失败，第二轮首个源恢复。
+      if (calls <= 2) return http.Response('edge not ready', 403);
+      return http.Response.bytes(content, 200);
+    });
+    final service = GitUpdateService(
+      baseUrls: const [_base, 'https://cdn2.example.com/repo@data-v2'],
+      manifestUrls: const [_base],
+      sink: InMemoryUpdateSink(),
+      fetchRounds: 2,
+      client: client,
+    );
+    final result = await service.checkAndApply(
+      seed: DataManifest.fromJson(_manifest('2026.11.11', {
+        'index.html': _b('old'),
+      })),
+    );
+    expect(result.status, UpdateStatus.updated);
+    expect(result.version, '2026.11.12');
+    expect(calls, 3);
+    service.dispose();
+  });
 }

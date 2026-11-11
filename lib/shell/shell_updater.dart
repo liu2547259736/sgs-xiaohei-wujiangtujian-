@@ -75,6 +75,8 @@ class ShellUpdater {
       sink: _sink,
       accept: isShellPath,
       allowDowngrade: false,
+      // jsDelivr 新 tag 刚发布时边缘节点会偶发 403，第二轮通常就通了。
+      fetchRounds: 2,
     );
     try {
       return await service.checkAndApply(seed: seed);

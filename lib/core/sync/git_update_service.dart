@@ -40,6 +40,7 @@ class GitUpdateService {
     this.urlBuilder,
     this.accept,
     this.allowDowngrade = true,
+    this.fetchRounds = 1,
     http.Client? client,
     this.maxParallel = 4,
     this.requestTimeout = const Duration(seconds: 20),
@@ -65,6 +66,11 @@ class GitUpdateService {
   /// 远端版本比本地旧时不覆盖（避免新装 App 被旧 tag 回退）。
   /// 默认 true 以兼容既有测试与「强制重拉」场景，壳里显式传 false。
   final bool allowDowngrade;
+
+  /// 所有源都失败后再从头重试的轮数。jsDelivr 新 tag 刚发布时，
+  /// 边缘节点会对个别文件间歇性返回 403（缓存未热），隔几百毫秒再试
+  /// 通常就 200 了。默认 1 保持既有行为，壳端传 2。
+  final int fetchRounds;
 
   final UpdateSink sink;
   final int maxParallel;
@@ -216,27 +222,33 @@ class GitUpdateService {
   /// 单文件下载，主源失败时自动试其它镜像。
   Future<_Fetched> _fetch(List<String> sources, DataFileEntry entry) async {
     Object? lastError;
-    for (final base in sources) {
-      try {
-        final resp = await _client
-            .get(Uri.parse(_join(base, entry.path)))
-            .timeout(requestTimeout);
-        if (resp.statusCode != 200) {
-          lastError = 'HTTP ${resp.statusCode}';
-          continue;
+    for (var round = 0; round < fetchRounds; round++) {
+      for (final base in sources) {
+        try {
+          final resp = await _client
+              .get(Uri.parse(_join(base, entry.path)))
+              .timeout(requestTimeout);
+          if (resp.statusCode != 200) {
+            lastError = 'HTTP ${resp.statusCode}';
+            continue;
+          }
+          final bytes = resp.bodyBytes;
+          if (bytes.length != entry.bytes) {
+            lastError = 'size mismatch';
+            continue;
+          }
+          if (sha256.convert(bytes).toString() != entry.sha256) {
+            lastError = 'sha256 mismatch';
+            continue;
+          }
+          return _Fetched(entry, bytes);
+        } catch (e) {
+          lastError = e;
         }
-        final bytes = resp.bodyBytes;
-        if (bytes.length != entry.bytes) {
-          lastError = 'size mismatch';
-          continue;
-        }
-        if (sha256.convert(bytes).toString() != entry.sha256) {
-          lastError = 'sha256 mismatch';
-          continue;
-        }
-        return _Fetched(entry, bytes);
-      } catch (e) {
-        lastError = e;
+      }
+      // 只在不同轮之间留一点时间，让 CDN 边缘节点缓存有机会热起来。
+      if (round + 1 < fetchRounds) {
+        await Future<void>.delayed(const Duration(milliseconds: 250));
       }
     }
     throw StateError('${entry.path}: $lastError');

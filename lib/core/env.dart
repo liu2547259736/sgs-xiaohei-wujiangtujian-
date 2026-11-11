@@ -32,17 +32,18 @@ class Env {
 
   /// 数据源按顺序自动回退。tag 是 immutable，命中后天然永久缓存。
   ///
-  /// 顺序依据 2026-11-11 国内实测（DNS 把 jsDelivr 系域名解析到 192.168.31.1）：
-  /// fastly / gcore / testingcf 能直连取到内容；cdn.jsdelivr.net 与
-  /// raw.githubusercontent.com 在本机 TLS 握手失败，仅作其它网络环境的兜底。
-  /// 放在前面的源失败会拖慢首启，所以把实测可用的排在最前。
+  /// 顺序依据 2026-11-12 实测：fastly 对约 3MB 以上的文件
+  /// （fonts/sgs-juan.woff2 3.4MB）返回 403「Package size exceeded 50 MB」，
+  /// gcore / testingcf / cdn / raw 则全部 200。版本发现仍走 fastly
+  /// （1.1MB manifest 实测秒回），这里只调整文件下载的优先级，
+  /// 免得每个大文件都先白跑一次 403。任一源失败会自动回退到下一个。
   static List<String> dataBaseUrls(String version) {
     if (!hasRemote) return const <String>[];
     final tag = '$tagPrefix$version';
     return <String>[
-      'https://fastly.jsdelivr.net/gh/$githubRepo@$tag',
       'https://gcore.jsdelivr.net/gh/$githubRepo@$tag',
       'https://testingcf.jsdelivr.net/gh/$githubRepo@$tag',
+      'https://fastly.jsdelivr.net/gh/$githubRepo@$tag',
       'https://cdn.jsdelivr.net/gh/$githubRepo@$tag',
       'https://raw.githubusercontent.com/$githubRepo/$tag',
     ];

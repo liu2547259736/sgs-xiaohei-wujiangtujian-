@@ -71,7 +71,12 @@ def main():
     env['NO_PROXY'] = 'localhost,127.0.0.1,::1'
     env['no_proxy'] = env['NO_PROXY']
 
-    cmd = [FLUTTER, 'test', '--no-pub'] + sys.argv[1:]
+    args = list(sys.argv[1:])
+    # 串行跑：shared_preferences 的 mock 状态在多 suite 并发时偶发串扰，
+    # 曾让 local_auth 的账号隔离用例随机失败。测试本身只跑 2 秒，串行不亏。
+    if not any(a == '-j' or a.startswith('--concurrency') for a in args):
+        args.insert(0, '--concurrency=1')
+    cmd = [FLUTTER, 'test', '--no-pub'] + args
     print('$ ' + ' '.join(cmd), flush=True)
     code = 1
     try:
