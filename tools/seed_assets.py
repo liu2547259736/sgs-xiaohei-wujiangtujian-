@@ -13,11 +13,12 @@
     meta/search_index.json     拼音 / 技能名 / 性别，跨版本搜索用
     images/<ver>/av/*          头像 3915 张（约 12 MB）
     images/<ver>/icons/**      包图标 321 张（约 0.7 MB）
+    history/**                 史料模块 321 个 JSON（约 11 MB，离线可读）
 
 有意排除：
     images/<ver>/il/*          117 MB 主视觉，Web 包体不适合；详情先用 av 放大
     skins/*                    皮肤图未托管，第一版只用武将内嵌的 skn 名称
-    其它 meta/*                卡牌 / 资讯 / 史料，属已砍功能
+    其它 meta/*                卡牌 / 资讯等，按需由 GitUpdateService 拉取
 
 额外产出 seed.json：随包文件的 version / counts / files[]（sha256 + bytes），
 格式与 manifest.json 协议兼容，App 直接当 seed 基线登记，不会把 148 MB 重下一遍。
@@ -78,6 +79,16 @@ def collect():
                 for name in sorted(files):
                     p = os.path.join(root, name)
                     out.append((rel(p, REPO), p))
+
+    # 4. 史料模块（books/ contents/ 下的正文与卷目录，全部随包保证离线可读）
+    hist = os.path.join(REPO, 'history')
+    if os.path.isdir(hist):
+        for root, _dirs, files in os.walk(hist):
+            for name in sorted(files):
+                if not name.endswith('.json'):
+                    continue
+                p = os.path.join(root, name)
+                out.append((rel(p, REPO), p))
     return out
 
 
