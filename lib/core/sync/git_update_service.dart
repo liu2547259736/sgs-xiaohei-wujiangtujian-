@@ -100,6 +100,9 @@ class GitUpdateService {
     DataManifest? remote;
     Uint8List? manifestBytes;
     Object? manifestError;
+    // 浮动分支的 manifest 各 CDN 边缘节点缓存进度不同（实测 2026-11-12
+    // 有的源还是前一天的版本）。「第一个成功就停」会被旧缓存卡死，
+    // 所以遍历全部源，取 version 最大的那份；失败源不影响整体。
     for (final base in (manifestUrls ?? baseUrls)) {
       try {
         final resp = await _client
@@ -109,10 +112,13 @@ class GitUpdateService {
           manifestError = 'HTTP ${resp.statusCode}';
           continue;
         }
-        remote = DataManifest.fromJson(
+        final candidate = DataManifest.fromJson(
             jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>);
-        manifestBytes = resp.bodyBytes;
-        break;
+        if (remote == null ||
+            compareVersion(candidate.version, remote.version) > 0) {
+          remote = candidate;
+          manifestBytes = resp.bodyBytes;
+        }
       } catch (e) {
         manifestError = e;
       }

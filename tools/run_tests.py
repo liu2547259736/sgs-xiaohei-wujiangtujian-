@@ -72,8 +72,9 @@ def main():
     env['no_proxy'] = env['NO_PROXY']
 
     args = list(sys.argv[1:])
-    # 串行跑：shared_preferences 的 mock 状态在多 suite 并发时偶发串扰，
-    # 曾让 local_auth 的账号隔离用例随机失败。测试本身只跑 2 秒，串行不亏。
+    # 串行跑结果更可复现；测试本身只跑几秒，串行不亏。
+    # （曾误以为随机的账号隔离失败是并发串扰，真因是 local_auth 的
+    #   userId 用时间戳生成、在 Windows 上碰撞，已在业务代码里修复。）
     if not any(a == '-j' or a.startswith('--concurrency') for a in args):
         args.insert(0, '--concurrency=1')
     cmd = [FLUTTER, 'test', '--no-pub'] + args

@@ -19,6 +19,10 @@ class Env {
   static bool get hasRemote => githubRepo.isNotEmpty;
 
   /// 版本发现源：指向浮动分支的 manifest.json，返回最新版本字符串。
+  ///
+  /// 实测各 CDN 边缘节点对 @master 的缓存进度可能差一整天（2026-11-12
+  /// 有一个源仍返回前一天的版本）。GitUpdateService 会遍历全部源并取
+  /// version 最大的那份，所以这里的顺序只影响请求先后，不决定采用哪个版本。
   static List<String> manifestUrls() {
     if (!hasRemote) return const <String>[];
     return <String>[

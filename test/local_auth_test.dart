@@ -58,6 +58,8 @@ void main() {
     expect(a.scopeKey('sgs_favorites'), contains('@'));
 
     await a.register('userB', 'passB');
+    expect(a.users.first.id, isNot(a.users.last.id),
+        reason: 'Windows 时钟粒度 1ms，两个账号不能共用同一个 id');
     expect(a.loadList('sgs_favorites'), isEmpty);
     await a.saveList('sgs_favorites', <String>['b1']);
 
@@ -68,6 +70,18 @@ void main() {
 
     await a.logout();
     expect(a.loadList('sgs_favorites'), isEmpty, reason: '游客态用原键');
+  });
+
+  test('连续注册的账号 id 全部唯一，不因时钟粒度串号', () async {
+    final a = await fresh();
+    final ids = <String>{};
+    for (var i = 0; i < 12; i++) {
+      final r = await a.register('user$i', 'pass$i');
+      expect(r.ok, isTrue);
+      ids.add(r.user!.id);
+    }
+    expect(ids.length, 12);
+    expect(a.users.length, 12);
   });
 
   test('导出备份可被重新导入，账号与收藏都保留', () async {

@@ -83,4 +83,60 @@ void main() {
     expect(pinned.first.contains('@${Env.tagPrefix}2026.11.11'), isTrue);
     expect(discovery.first, isNot(pinned.first));
   });
+
+  test('多源 manifest 缓存不一致时取最新版本，不被旧缓存卡住', () async {
+    const staleVersion = '2026.11.11';
+    const freshVersion = '2026.12.01';
+    final content = _bytes('new shard');
+    final seen = <String>[];
+
+    Map<String, dynamic> manifest(String version) => <String, dynamic>{
+          'schema': 1,
+          'version': version,
+          'updated_at': '2026-12-01T00:00:00+08:00',
+          'counts': <String, int>{'heroes': 1},
+          'files': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'path': _path,
+              'sha256': sha256.convert(content).toString(),
+              'bytes': content.length,
+            }
+          ],
+        };
+
+    final client = MockClient((req) async {
+      final url = req.url.toString();
+      seen.add(url);
+      if (url.endsWith('manifest.json')) {
+        // 第一个源成功，但 CDN 边缘节点还是旧缓存。
+        final v = url.contains('stale.example.com')
+            ? staleVersion
+            : freshVersion;
+        return http.Response.bytes(
+            utf8.encode(jsonEncode(manifest(v))), 200);
+      }
+      if (url.endsWith(_path)) return http.Response.bytes(content, 200);
+      return http.Response('missing', 404);
+    });
+
+    final service = GitUpdateService(
+      baseUrls: const <String>['https://cdn.example.com/repo@data-v1'],
+      manifestUrls: const <String>[
+        'https://stale.example.com/repo@master',
+        'https://fresh.example.com/repo@master',
+      ],
+      urlBuilder: (v) => <String>['https://cdn.example.com/repo@data-v$v'],
+      sink: InMemoryUpdateSink(),
+      client: client,
+    );
+    final result = await service.checkAndApply();
+    service.dispose();
+
+    expect(result.status, UpdateStatus.updated);
+    expect(result.version, freshVersion);
+    expect(seen.any((u) => u.contains('@data-v$freshVersion/$_path')), isTrue,
+        reason: '文件必须锁到最新的那个版本 tag');
+    expect(seen.any((u) => u.contains('stale.example.com')), isTrue,
+        reason: '旧源也被查询过，只是没被采纳');
+  });
 }

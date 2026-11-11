@@ -98,6 +98,21 @@ class AuthResult {
 }
 
 class LocalAuthService extends ChangeNotifier {
+  /// Windows 上 DateTime.now() 的粒度约 1ms，连续注册两次极可能拿到
+  /// 完全相同的时间戳。只用时间戳当 userId 会让两个账号共用一个
+  /// scopeKey，收藏/笔记直接串号。这里用进程内自增序号保证唯一。
+  static int _idSeq = 0;
+
+  static String _newId([Iterable<String> existing = const <String>[]]) {
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    final taken = existing.toSet();
+    var id = 'user_${stamp}_${_idSeq++}';
+    while (taken.contains(id)) {
+      id = 'user_${stamp}_${_idSeq++}';
+    }
+    return id;
+  }
+
   LocalAuthService({SharedPreferences? prefs}) {
     _prefs = prefs;
   }
@@ -198,7 +213,7 @@ class LocalAuthService extends ChangeNotifier {
     }
     final now = _now();
     final user = LocalUser(
-      id: 'user_${DateTime.now().microsecondsSinceEpoch}',
+      id: _newId(_users.map((u) => u.id)),
       username: name,
       password: hash(password),
       nickname: _s(nickname).isEmpty ? name : _s(nickname),
@@ -355,9 +370,11 @@ class LocalAuthService extends ChangeNotifier {
           : _s(j['password']);
       final base = LocalUser.fromJson(j);
       final user = LocalUser(
-        id: idx >= 0 ? list[idx].id : (base.id.isEmpty
-            ? 'user_${DateTime.now().microsecondsSinceEpoch}_$added'
-            : base.id),
+        id: idx >= 0
+            ? list[idx].id
+            : (base.id.isEmpty || list.any((u) => u.id == base.id)
+                ? _newId(list.map((u) => u.id))
+                : base.id),
         username: name,
         password: idx >= 0 ? list[idx].password : storedPassword,
         nickname: base.nickname.isEmpty ? name : base.nickname,
