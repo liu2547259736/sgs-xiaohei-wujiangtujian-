@@ -7,7 +7,7 @@ class Env {
 
   /// GitHub 的 `<user>/<repo>`，例如 'asuna/sgs-data'。
   /// 留空 = 未配置远端，App 只用随包 seed 数据，且不发任何网络请求。
-  static const String githubRepo = '';
+  static const String githubRepo = 'liu2547259736/sgs-data';
 
   static const String tagPrefix = 'data-v';
 
