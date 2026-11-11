@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../data/atlas_controller.dart';
 import '../data/models.dart';
 import '../features/account/account_page.dart';
-import '../features/battle/battle_page.dart';
 import '../features/history/history_page.dart';
 import '../features/history/history_repository.dart';
 import '../features/settings/settings_page.dart';
@@ -85,11 +84,6 @@ class _AtlasPageState extends State<AtlasPage> {
             label: Text('武将图鉴'),
           ),
           NavigationDrawerDestination(
-            icon: Icon(Icons.casino_outlined),
-            selectedIcon: Icon(Icons.casino),
-            label: Text('轻量对战 · 2v2'),
-          ),
-          NavigationDrawerDestination(
             icon: Icon(Icons.menu_book_outlined),
             selectedIcon: Icon(Icons.menu_book),
             label: Text('三国史料'),
@@ -110,10 +104,9 @@ class _AtlasPageState extends State<AtlasPage> {
   void _onNavigate(BuildContext context, int index) {
     Navigator.pop(context);
     final Widget page = switch (index) {
-      1 => BattlePage(source: c.source),
-      2 => HistoryPage(repository: HistoryRepository(source: c.source)),
-      3 => AccountPage(controller: c),
-      4 => SettingsPage(controller: c),
+      1 => HistoryPage(repository: HistoryRepository(source: c.source)),
+      2 => AccountPage(controller: c),
+      3 => SettingsPage(controller: c),
       _ => const SizedBox.shrink(),
     };
     if (index == 0) return;

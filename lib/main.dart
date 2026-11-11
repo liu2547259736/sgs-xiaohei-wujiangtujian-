@@ -1,66 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'core/sync/data_file_scope.dart';
-import 'features/assets/asset_roots.dart';
-import 'features/common/app_scopes.dart';
-import 'data/atlas_controller.dart';
-import 'ui/atlas_page.dart';
+import 'shell/shell_app.dart';
 
-void main() => runApp(const AtlasApp());
-
-class AtlasApp extends StatefulWidget {
-  const AtlasApp({super.key});
-
-  @override
-  State<AtlasApp> createState() => _AtlasAppState();
-}
-
-class _AtlasAppState extends State<AtlasApp> {
-  final AtlasController _controller = AtlasController();
-  final AssetRoots _roots = AssetRoots();
-
-  @override
-  void initState() {
-    super.initState();
-    _roots.init();
-    _controller.init();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (_, _) => AuthScope(
-        auth: _controller.auth,
-        child: AssetRootsScope(
-          roots: _roots,
-          child: DataFileScope(
-            source: _controller.source,
-            child: MaterialApp(
-              title: '三国杀武将图鉴',
-              debugShowCheckedModeBanner: false,
-              themeMode: _controller.themeMode,
-              theme: _theme(Brightness.light),
-              darkTheme: _theme(Brightness.dark),
-              home: AtlasPage(controller: _controller),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  ThemeData _theme(Brightness brightness) => ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF8C2E27), // 沿用主程序的蜀红主色
-          brightness: brightness,
-        ),
-      );
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const ShellApp());
 }

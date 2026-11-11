@@ -35,18 +35,19 @@ jobs:
       - run: flutter test
 
   web:
-    name: Web
+    # Web 端 1:1：直接发布随包的原页面，不跑 flutter build web。
+    # assets/shell 由 tools/sync_shell_assets.py 从主程序镜像单向同步，
+    # 同一份 index.html / style.css / app.js，Flutter 渲染引擎不参与。
+    name: Web (原页面直出)
     needs: verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - run: flutter build web --release
+      - name: 原页面直出
+        run: |
+          mkdir -p build/web
+          cp -a assets/shell/. build/web/
+          rm -f build/web/files.txt build/web/shell.json
       - uses: actions/upload-artifact@v4
         with:
           name: sgs-heroes-web

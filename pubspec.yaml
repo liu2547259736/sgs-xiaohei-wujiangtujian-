@@ -45,6 +45,8 @@ dependencies:
   shared_preferences: ^2.3.0
   # 语音播放：皮肤与语音资源未托管，配置资源根 URL 后即可真播放
   audioplayers: ^6.1.0
+  # 1:1 原页面：原生端用 WebView 加载随包的 index.html / style.css / app.js
+  webview_flutter: ^4.14.1
 
 dev_dependencies:
   flutter_test:
@@ -91,6 +93,51 @@ flutter:
     - assets/seed/meta/
     # <<< seed-assets:end <<<
 
+    # >>> shell-assets:begin >>>
+    - assets/shell/
+    - assets/shell/assets/cards/basic/
+    - assets/shell/assets/cards/equip/
+    - assets/shell/assets/cards/scroll/
+    - assets/shell/assets/cards/special/
+    - assets/shell/audio/
+    - assets/shell/data/
+    - assets/shell/data/gjf/
+    - assets/shell/data/history/
+    - assets/shell/data/history/books/
+    - assets/shell/data/history/contents/
+    - assets/shell/data/hlsgs/
+    - assets/shell/data/msgs/
+    - assets/shell/data/ol_news/
+    - assets/shell/data/ol_news/covers/
+    - assets/shell/data/sgs/
+    - assets/shell/data/sgsol/
+    - assets/shell/data/wxmini/
+    - assets/shell/data/x10_news/
+    - assets/shell/data/x10_news/covers/
+    - assets/shell/data/x10_news/heroes/
+    - assets/shell/fonts/
+    - assets/shell/images/brand/
+    - assets/shell/images/gjf/av/
+    - assets/shell/images/gjf/il/
+    - assets/shell/images/hlsgs/av/
+    - assets/shell/images/hlsgs/il/
+    - assets/shell/images/msgs/av/
+    - assets/shell/images/msgs/icons/packages/
+    - assets/shell/images/msgs/il/
+    - assets/shell/images/sgs/av/
+    - assets/shell/images/sgs/icons/category/
+    - assets/shell/images/sgs/icons/kingdom/
+    - assets/shell/images/sgs/icons/packages/
+    - assets/shell/images/sgs/icons/rarity/
+    - assets/shell/images/sgs/il/
+    - assets/shell/images/sgsol/av/
+    - assets/shell/images/sgsol/il/
+    - assets/shell/images/wxmini/av/
+    - assets/shell/images/wxmini/il/
+    - assets/shell/scripts/
+    - assets/shell/services/
+    - assets/shell/types/
+    # <<< shell-assets:end <<<
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
