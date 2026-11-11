@@ -45,8 +45,10 @@ dependencies:
   shared_preferences: ^2.3.0
   # 语音播放：皮肤与语音资源未托管，配置资源根 URL 后即可真播放
   audioplayers: ^6.1.0
-  # 1:1 原页面：原生端用 WebView 加载随包的 index.html / style.css / app.js
+  # 1:1 原页面：移动/苹果端用内嵌 WebView 加载随包原页面
   webview_flutter: ^4.14.1
+  # Windows / Linux 没有 webview_flutter 实现，用桌面原生窗口补齐（WebView2 / WebKitGTK）
+  desktop_webview_window: ^0.4.2
 
 dev_dependencies:
   flutter_test:

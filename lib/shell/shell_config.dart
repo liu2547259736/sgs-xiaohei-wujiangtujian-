@@ -5,6 +5,7 @@
 const String kShellAssetPrefix = 'assets/shell/';
 const String kShellFileList = 'assets/shell/files.txt';
 const String kShellMeta = 'assets/shell/shell.json';
+const String kShellHashes = 'assets/shell/shell_hashes.json';
 const String kShellEntry = 'index.html';
 
 /// GitUpdateService 的覆盖层落盘目录，见 update_sink_io.dart。

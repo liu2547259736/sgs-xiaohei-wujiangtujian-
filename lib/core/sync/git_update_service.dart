@@ -38,6 +38,8 @@ class GitUpdateService {
     required this.sink,
     this.manifestUrls,
     this.urlBuilder,
+    this.accept,
+    this.allowDowngrade = true,
     http.Client? client,
     this.maxParallel = 4,
     this.requestTimeout = const Duration(seconds: 20),
@@ -53,6 +55,16 @@ class GitUpdateService {
   /// 拿到远端 version 后，按该版本重新生成文件源（immutable tag）。
   /// 不传则所有文件都从 baseUrls 拉。
   final List<String> Function(String version)? urlBuilder;
+
+  /// 只处理这些路径的文件。原页面壳用它可以跳过 heroes/ skins/ meta/
+  /// history/ 等 Flutter 数据分片，只拉 index.html / style.css / app.js /
+  /// data/** / fonts/** / images/**，避免一次下载几十 MB 无关 JSON。
+  /// 不传 = 全量接收，行为与旧版一致。
+  final bool Function(String path)? accept;
+
+  /// 远端版本比本地旧时不覆盖（避免新装 App 被旧 tag 回退）。
+  /// 默认 true 以兼容既有测试与「强制重拉」场景，壳里显式传 false。
+  final bool allowDowngrade;
 
   final UpdateSink sink;
   final int maxParallel;
@@ -110,13 +122,30 @@ class GitUpdateService {
       return UpdateResult(
           status: UpdateStatus.upToDate, version: remote.version);
     }
+    if (!allowDowngrade &&
+        currentVersion.isNotEmpty &&
+        compareVersion(remote.version, currentVersion) <= 0) {
+      return UpdateResult(
+          status: UpdateStatus.upToDate, version: currentVersion);
+    }
 
-    // 2. 比对 sha256，只取变化的文件。
+    // 2. 比对 sha256，只取变化的文件（并按壳的白名单过滤）。
     final local = await sink.appliedHashes();
+    final acceptPath = accept;
     final pending = remote.files
         .where((f) => local[f.path] != f.sha256)
+        .where((f) => acceptPath == null || acceptPath(f.path))
         .toList(growable: false);
     final pendingBytes = pending.fold<int>(0, (sum, f) => sum + f.bytes);
+
+    // commit 只登记本次真正纳入管理的文件，别把被过滤掉的路径虚报成
+    // 「已应用」，否则下次 hash 比对会失去意义。
+    final effectiveHashes = acceptPath == null
+        ? remote.hashByPath
+        : <String, String>{
+            for (final e in remote.hashByPath.entries)
+              if (acceptPath(e.key)) e.key: e.value,
+          };
 
     // 版本发现走浮动分支，但文件必须锁到远端版本对应的 immutable tag，
     // 否则下载途中分支又更新，会出现 manifest 与文件版本错配。
@@ -136,7 +165,7 @@ class GitUpdateService {
       // 只有 version 变了、文件内容没变：直接推进版本号。
       await sink.begin();
       await _writeManifest(manifestBytes);
-      await sink.commit(remote.version, remote.hashByPath);
+      await sink.commit(remote.version, effectiveHashes);
       return UpdateResult(
           status: UpdateStatus.updated, version: remote.version);
     }
@@ -163,7 +192,7 @@ class GitUpdateService {
       }
       // 4. 全部成功后才推进 version —— 中途失败旧数据仍然完整可读。
       phase = 'commit';
-      await sink.commit(remote.version, remote.hashByPath);
+      await sink.commit(remote.version, effectiveHashes);
     } catch (e) {
       await sink.rollback();
       return UpdateResult(
@@ -217,6 +246,24 @@ class GitUpdateService {
   /// 这样更新后页面里的「数据版本」和分片清单能立刻跟着新版本走。
   Future<void> _writeManifest(Uint8List? bytes) async {
     if (bytes != null) await sink.write('manifest.json', bytes);
+  }
+
+  /// 点分/短横分隔的数字版本比较，如 2026.11.10-2 < 2026.11.11。
+  /// 非数字段按 0 处理，未知格式不会抛异常。
+  static int compareVersion(String a, String b) {
+    List<int> parts(String s) => s
+        .split(RegExp(r'[.\-]'))
+        .map((e) => int.tryParse(e) ?? 0)
+        .toList();
+    final pa = parts(a);
+    final pb = parts(b);
+    final n = pa.length > pb.length ? pa.length : pb.length;
+    for (var i = 0; i < n; i++) {
+      final x = i < pa.length ? pa[i] : 0;
+      final y = i < pb.length ? pb[i] : 0;
+      if (x != y) return x.compareTo(y);
+    }
+    return 0;
   }
 
   static String _join(String base, String path) {

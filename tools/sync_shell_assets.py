@@ -13,11 +13,13 @@ index.html / style.css / app.js。要 1:1 保留原界面，唯一可靠做法�
     assets/shell/**          原页面（排除开发脚本、备份、抓取工具）
     assets/shell/files.txt   随包文件清单，供运行时判断资源是否存在
     assets/shell/shell.json  版本与统计，跟随 data-repo 的数据版本
+    assets/shell/shell_hashes.json  每个随包文件的 sha256，作增量更新基线
 
 语义：镜像同步 —— 源里删掉的文件这里也会清掉；绝不修改 legacy-web。
 pubspec 的 shell-assets 区块由本脚本自动维护（Flutter 的 assets 目录
 声明不递归，必须逐目录列出，否则构建产物里会缺文件）。
 """
+import hashlib
 import json
 import os
 import re
@@ -42,6 +44,14 @@ SKIP_SUFFIX = ('.py', '.pyc', '.bat', '.vbs', '.ps1', '.md', '.log', '.bak', '.c
 BEGIN = '    # >>> shell-assets:begin >>>'
 END = '    # <<< shell-assets:end <<<'
 SEED_END = '    # <<< seed-assets:end <<<'
+
+
+def sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, 'rb') as fh:
+        for block in iter(lambda: fh.read(1 << 20), b''):
+            h.update(block)
+    return h.hexdigest()
 
 
 def rel(path, base):
@@ -111,7 +121,7 @@ def main():
         kept.add(rpath)
 
     # 镜像清理：源里已不存在的文件，随包也删掉（不碰自身产出的两个清单）
-    self_files = {'files.txt', 'shell.json'}
+    self_files = {'files.txt', 'shell.json', 'shell_hashes.json'}
     stale = 0
     for root, dirs, files in os.walk(DST):
         dirs[:] = [d for d in dirs if d not in ('.git', '__pycache__')]
@@ -147,10 +157,21 @@ def main():
     with open(os.path.join(DST, 'shell.json'), 'w', encoding='utf-8') as f:
         json.dump(meta, f, ensure_ascii=False, separators=(',', ':'))
 
+    # 随包基线：路径就是原页面 URL 路径，也就是 data-repo 相对路径。
+    # App 首次启动时把它登记进 UpdateSink，之后只拉 hash 变化的文件。
+    hashes = {
+        r: sha256_file(os.path.join(DST, *r.split('/')))
+        for r, _ in items
+    }
+    with open(os.path.join(DST, 'shell_hashes.json'), 'w', encoding='utf-8') as f:
+        json.dump({'schema': 1, 'version': version, 'hashes': hashes},
+                  f, ensure_ascii=False, separators=(',', ':'), sort_keys=True)
+
     print('legacy-web: %s' % SRC)
     print('shell     : %s' % DST)
     print('随包文件  : %d 个 / %.2f MB' % (len(items), total / 1024 / 1024))
     print('数据版本  : %s' % version)
+    print('基线哈希  : %d 条 -> shell_hashes.json' % len(hashes))
     print('镜像清理  : %d 个残留文件' % stale)
     patch_pubspec([r for r, _ in items])
 

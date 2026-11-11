@@ -14,6 +14,14 @@ import 'shell_assets.dart';
 import 'shell_config.dart';
 
 class ShellServer {
+  /// 测试可注入覆盖层目录；不传则用 ApplicationSupportDirectory/sgs_data。
+  // 显式赋值而非 initializing formal：字段名是私有实现细节，不做公开参数名。
+  // 测试可注入覆盖层目录与随包资源；不传则走真实平台目录与 asset bundle。
+  ShellServer({Directory? dataDir, ShellAssets? assets}) {
+    _dataDir = dataDir;
+    _assets = assets;
+  }
+
   HttpServer? _server;
   ShellAssets? _assets;
   Directory? _dataDir;
@@ -22,13 +30,15 @@ class ShellServer {
   String get version => _assets?.version ?? '0';
 
   Future<int> start() async {
-    _assets = await ShellAssets.load();
-    try {
-      final base = await getApplicationSupportDirectory();
-      _dataDir = Directory('${base.path}/$kDataDirName');
-    } catch (_) {
-      // 桌面端没有 path_provider 插件时降级成纯随包页面，不影响 1:1。
-      _dataDir = null;
+    _assets ??= await ShellAssets.load();
+    if (_dataDir == null) {
+      try {
+        final base = await getApplicationSupportDirectory();
+        _dataDir = Directory('${base.path}/$kDataDirName');
+      } catch (_) {
+        // 桌面端没有 path_provider 插件时降级成纯随包页面，不影响 1:1。
+        _dataDir = null;
+      }
     }
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     _server = server;
@@ -100,7 +110,12 @@ class ShellServer {
     if (s.startsWith('/')) s = s.substring(1);
     if (s.isEmpty) return kShellEntry;
     final parts = s.split('/');
-    if (parts.any((e) => e.isEmpty || e == '.' || e == '..')) return null;
+    // 覆盖层的元数据（_meta.json、.staging/）不该被当成页面资源读出去。
+    if (s == '_meta.json' || s == '_meta.json.tmp') return null;
+    if (parts.any((e) =>
+        e.isEmpty || e == '.' || e == '..' || e.startsWith('.'))) {
+      return null;
+    }
     return parts.join('/');
   }
 
