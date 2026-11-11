@@ -1,0 +1,173 @@
+# 六端构建流水线。
+#
+# 本机（Windows）没有 Android SDK / JDK / Visual Studio，也跑不了 iOS·macOS·Linux，
+# 所以把六端编译交给 GitHub 的三台 runner：ubuntu / windows / macos。
+# 推到 GitHub 后，push main/master、打 v* tag 或手动 workflow_dispatch 即触发。
+#
+# 注意：Flutter 是 AOT，代码变更必须重新打包发版；这条流水线只打包，
+# 数据的增量更新走 data-repo 的 jsDelivr tag，与本流水线互不影响。
+name: 六端构建
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+
+env:
+  FLUTTER_VERSION: '3.47.9'
+
+jobs:
+  verify:
+    name: 静态检查与测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart analyze
+      - run: flutter test
+
+  web:
+    name: Web
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build web --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sgs-heroes-web
+          path: build/web/
+          retention-days: 14
+
+  android:
+    name: Android (APK)
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sgs-heroes-android
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+
+  windows:
+    name: Windows
+    needs: verify
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - name: 打包 Release 目录
+        shell: pwsh
+        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath sgs-heroes-windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sgs-heroes-windows
+          path: sgs-heroes-windows.zip
+          retention-days: 14
+
+  linux:
+    name: Linux
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装 Linux 桌面依赖
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libblkid-dev libsecret-1-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build linux --release
+      - name: 打包 bundle
+        run: tar -czf sgs-heroes-linux.tar.gz -C build/linux/x64/release .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sgs-heroes-linux
+          path: sgs-heroes-linux.tar.gz
+          retention-days: 14
+
+  macos:
+    name: macOS
+    needs: verify
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build macos --release
+      - name: 打包 .app
+        run: |
+          cd build/macos/Build/Products/Release
+          ditto -c -k --sequesterRsrc --keepParent *.app sgs-heroes-macos.zip
+          mv sgs-heroes-macos.zip "$GITHUB_WORKSPACE/"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sgs-heroes-macos
+          path: sgs-heroes-macos.zip
+          retention-days: 14
+
+  ios:
+    name: iOS (免签名)
+    needs: verify
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build ios --release --no-codesign
+      - name: 打包 Runner.app
+        run: |
+          cd build/ios/iphoneos
+          ditto -c -k --sequesterRsrc --keepParent Runner.app sgs-heroes-ios.zip
+          mv sgs-heroes-ios.zip "$GITHUB_WORKSPACE/"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sgs-heroes-ios
+          path: sgs-heroes-ios.zip
+          retention-days: 14

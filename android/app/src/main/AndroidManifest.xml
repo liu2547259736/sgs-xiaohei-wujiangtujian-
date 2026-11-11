@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 数据增量更新需要从 jsDelivr / GitHub CDN 拉取 manifest 与分片 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="sgs_heroes"
+        android:label="三国杀武将图鉴"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

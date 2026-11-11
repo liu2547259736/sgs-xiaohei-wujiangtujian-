@@ -1,11 +1,11 @@
 {
-    "name": "sgs_heroes",
-    "short_name": "sgs_heroes",
+    "name": "三国杀武将图鉴",
+    "short_name": "武将图鉴",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "Sanguosha Heroes Atlas",
+    "description": "三国杀武将图鉴 · 七版本全武将离线速查",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
