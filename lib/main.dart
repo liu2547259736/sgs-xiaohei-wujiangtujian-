@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'core/sync/data_file_scope.dart';
+import 'features/assets/asset_roots.dart';
+import 'features/common/app_scopes.dart';
 import 'data/atlas_controller.dart';
 import 'ui/atlas_page.dart';
 
@@ -15,10 +17,12 @@ class AtlasApp extends StatefulWidget {
 
 class _AtlasAppState extends State<AtlasApp> {
   final AtlasController _controller = AtlasController();
+  final AssetRoots _roots = AssetRoots();
 
   @override
   void initState() {
     super.initState();
+    _roots.init();
     _controller.init();
   }
 
@@ -32,15 +36,21 @@ class _AtlasAppState extends State<AtlasApp> {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
-      builder: (_, _) => DataFileScope(
-        source: _controller.source,
-        child: MaterialApp(
-          title: '三国杀武将图鉴',
-          debugShowCheckedModeBanner: false,
-          themeMode: _controller.themeMode,
-          theme: _theme(Brightness.light),
-          darkTheme: _theme(Brightness.dark),
-          home: AtlasPage(controller: _controller),
+      builder: (_, _) => AuthScope(
+        auth: _controller.auth,
+        child: AssetRootsScope(
+          roots: _roots,
+          child: DataFileScope(
+            source: _controller.source,
+            child: MaterialApp(
+              title: '三国杀武将图鉴',
+              debugShowCheckedModeBanner: false,
+              themeMode: _controller.themeMode,
+              theme: _theme(Brightness.light),
+              darkTheme: _theme(Brightness.dark),
+              home: AtlasPage(controller: _controller),
+            ),
+          ),
         ),
       ),
     );

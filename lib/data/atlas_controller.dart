@@ -3,6 +3,8 @@
 // 只用 Flutter 自带的 ChangeNotifier，不引状态管理框架，六端零差异。
 // 更新链路接的是生产 UpdateSink：native 落文件、Web 落 IndexedDB，
 // 且同一个 sink 同时作为 HeroRepository 的数据源，下载完立即对页面生效。
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 
@@ -11,6 +13,7 @@ import '../core/sync/data_file_source.dart';
 import '../core/sync/git_update_service.dart';
 import '../core/sync/persistent_update_sink.dart';
 import '../core/sync/update_protocol.dart';
+import '../features/account/local_auth.dart';
 import 'hero_repository.dart';
 import 'models.dart';
 
@@ -21,7 +24,9 @@ class AtlasController extends ChangeNotifier {
     HeroRepository? repository,
     UpdateSink? updateSink,
     DataFileSource? source,
+    LocalAuthService? auth,
   }) {
+    _auth = auth ?? LocalAuthService();
     final sink = updateSink ?? createPersistentSink();
     _sink = sink;
     final resolved = source ??
@@ -35,6 +40,9 @@ class AtlasController extends ChangeNotifier {
   late final UpdateSink _sink;
   late final DataFileSource _source;
   late final HeroRepository _repo;
+  late final LocalAuthService _auth;
+
+  LocalAuthService get auth => _auth;
 
   /// 给 widget 树的 DataFileScope 用。
   DataFileSource get source => _source;
@@ -81,6 +89,10 @@ class AtlasController extends ChangeNotifier {
     try {
       await _source.prime();
     } catch (_) {}
+    try {
+      await _auth.init();
+    } catch (_) {}
+    favorites.addAll(_auth.loadList('sgs_favorites'));
     try {
       await _repo.load();
       selectedVersion =
@@ -167,6 +179,15 @@ class AtlasController extends ChangeNotifier {
 
   void toggleFavorite(String key) {
     if (!favorites.remove(key)) favorites.add(key);
+    unawaited(_auth.saveList('sgs_favorites', favorites.toList()));
+    notifyListeners();
+  }
+
+  /// 登录 / 登出 / 切换账号 / 导入备份后，按新会话重新载入隔离的收藏。
+  Future<void> onAccountChanged() async {
+    favorites
+      ..clear()
+      ..addAll(_auth.loadList('sgs_favorites'));
     notifyListeners();
   }
 

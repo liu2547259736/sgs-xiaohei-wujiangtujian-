@@ -241,6 +241,28 @@ class SkinInfo {
       );
 }
 
+/// 官方语音组（主程序 g.olv）：一个技能可有多条台词与多个音频文件。
+class VoiceItem {
+  const VoiceItem({
+    required this.kind,
+    required this.lines,
+    required this.clipIds,
+  });
+
+  final String kind;
+  final List<String> lines;
+  final List<String> clipIds;
+
+  bool get hasAudio => clipIds.isNotEmpty;
+}
+
+class VoiceGroup {
+  const VoiceGroup({required this.name, required this.items});
+
+  final String name;
+  final List<VoiceItem> items;
+}
+
 class HeroDetail {
   const HeroDetail({
     required this.version,
@@ -266,6 +288,7 @@ class HeroDetail {
     required this.otherTags,
     required this.quotes,
     required this.voiceLines,
+    this.voiceGroups = const <VoiceGroup>[],
     required this.achievements,
     required this.skins,
     required this.skinPaths,
@@ -296,6 +319,7 @@ class HeroDetail {
   final List<String> otherTags;
   final Map<String, String> quotes;
   final List<String> voiceLines;
+  final List<VoiceGroup> voiceGroups;
   final List<String> achievements;
   final List<SkinInfo> skins;
   final List<String> skinPaths;
@@ -318,6 +342,18 @@ class HeroDetail {
           if (lines.length < 16) lines.add('$kind：$line');
         }
       }
+    }
+    final voiceGroups = <VoiceGroup>[];
+    for (final group in mapListOf(j['olv'])) {
+      final vItems = <VoiceItem>[];
+      for (final item in mapListOf(group['items'])) {
+        vItems.add(VoiceItem(
+          kind: strOf(item['k']),
+          lines: strListOf(item['lines']),
+          clipIds: strListOf(item['au']),
+        ));
+      }
+      voiceGroups.add(VoiceGroup(name: strOf(group['grp']), items: vItems));
     }
     final skinPaths = strListOf(j['sk']);
     final skins = mapListOf(j['skn'])
@@ -347,6 +383,7 @@ class HeroDetail {
       otherTags: strListOf(j['ot']),
       quotes: quoteMapOf(j['q']),
       voiceLines: lines,
+      voiceGroups: voiceGroups,
       achievements: strListOf(j['gw']),
       skins: skins,
       skinPaths: skinPaths,

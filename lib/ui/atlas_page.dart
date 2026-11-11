@@ -4,6 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../data/atlas_controller.dart';
 import '../data/models.dart';
+import '../features/account/account_page.dart';
+import '../features/battle/battle_page.dart';
+import '../features/history/history_page.dart';
+import '../features/history/history_repository.dart';
+import '../features/settings/settings_page.dart';
 import 'hero_detail_sheet.dart';
 import 'widgets/filter_bar.dart';
 import 'widgets/hero_card.dart';
@@ -59,9 +64,61 @@ class _AtlasPageState extends State<AtlasPage> {
             ),
           ],
         ),
+        drawer: _drawer(context),
         body: _body(),
       ),
     );
+  }
+
+  Widget _drawer(BuildContext context) => NavigationDrawer(
+        selectedIndex: 0,
+        onDestinationSelected: (i) => _onNavigate(context, i),
+        children: const <Widget>[
+          Padding(
+            padding: EdgeInsets.fromLTRB(28, 22, 16, 12),
+            child: Text('三国杀武将图鉴',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          ),
+          NavigationDrawerDestination(
+            icon: Icon(Icons.grid_view_outlined),
+            selectedIcon: Icon(Icons.grid_view),
+            label: Text('武将图鉴'),
+          ),
+          NavigationDrawerDestination(
+            icon: Icon(Icons.casino_outlined),
+            selectedIcon: Icon(Icons.casino),
+            label: Text('轻量对战 · 2v2'),
+          ),
+          NavigationDrawerDestination(
+            icon: Icon(Icons.menu_book_outlined),
+            selectedIcon: Icon(Icons.menu_book),
+            label: Text('三国史料'),
+          ),
+          NavigationDrawerDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: Text('本地账号'),
+          ),
+          NavigationDrawerDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: Text('设置'),
+          ),
+        ],
+      );
+
+  void _onNavigate(BuildContext context, int index) {
+    Navigator.pop(context);
+    final Widget page = switch (index) {
+      1 => BattlePage(source: c.source),
+      2 => HistoryPage(repository: HistoryRepository(source: c.source)),
+      3 => AccountPage(controller: c),
+      4 => SettingsPage(controller: c),
+      _ => const SizedBox.shrink(),
+    };
+    if (index == 0) return;
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
   Widget _body() {

@@ -41,6 +41,10 @@ dependencies:
   # 生产 UpdateSink：native 落应用支持目录，Web 落 IndexedDB
   path_provider: ^2.1.5
   web: ^1.1.1
+  # 本地账号（注册 / 登录 / 收藏隔离 / 导入导出）
+  shared_preferences: ^2.3.0
+  # 语音播放：皮肤与语音资源未托管，配置资源根 URL 后即可真播放
+  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:

@@ -1,10 +1,11 @@
 // 武将详情底部抽屉：立绘 / 技能 / 标签 / 生平 / 台词 / 皮肤。
 //
-// 主程序 detailHTML() 的功能在这里保留核心部分；第一版没有皮肤图与语音播放，
-// 对应区域明确标注「未随包」，不做假数据、不发起无效请求。
+// 主程序 detailHTML() 的功能在这里保留核心部分；皮肤图与语音走可配置的资源根：配了就真加载/真播放，没配明确标注，不做假数据。
 import 'package:flutter/material.dart';
 
 import '../data/models.dart';
+import '../features/assets/skin_gallery_page.dart';
+import '../features/assets/voice_page.dart';
 import 'widgets/hero_avatar.dart';
 
 class HeroDetailSheet extends StatelessWidget {
@@ -312,9 +313,30 @@ class HeroDetailSheet extends StatelessWidget {
                               style: theme.textTheme.bodySmall),
                         const SizedBox(height: 6),
                         Text(
-                          '皮肤图未随包分发，需联网后按需下载。',
+                          '皮肤图与语音未随包分发，可在「设置」里配置资源根后按需加载。',
                           style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          children: <Widget>[
+                            FilledButton.tonalIcon(
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        SkinGalleryPage(detail: detail))),
+                              icon: const Icon(Icons.photo_library_outlined),
+                              label: Text('皮肤大图 (${detail.skinPaths.length})'),
+                            ),
+                            FilledButton.tonalIcon(
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                    builder: (_) => VoicePage(detail: detail))),
+                              icon: const Icon(Icons.volume_up_outlined),
+                              label: const Text('台词 / 语音'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
