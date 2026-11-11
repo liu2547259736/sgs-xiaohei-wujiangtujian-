@@ -1,13 +1,15 @@
 // 全局状态：版本 / 筛选 / 搜索 / 主题 / 收藏 / 更新状态。
 //
 // 只用 Flutter 自带的 ChangeNotifier，不引状态管理框架，六端零差异。
-// 收藏目前是会话内内存态；接 shared_preferences 持久化放在后面，不影响 UI 契约。
+// 更新链路接的是生产 UpdateSink：native 落文件、Web 落 IndexedDB，
+// 且同一个 sink 同时作为 HeroRepository 的数据源，下载完立即对页面生效。
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 
 import '../core/env.dart';
+import '../core/sync/data_file_source.dart';
 import '../core/sync/git_update_service.dart';
-import '../core/sync/in_memory_update_sink.dart';
+import '../core/sync/persistent_update_sink.dart';
 import '../core/sync/update_protocol.dart';
 import 'hero_repository.dart';
 import 'models.dart';
@@ -15,11 +17,27 @@ import 'models.dart';
 enum AtlasStatus { loading, ready, error }
 
 class AtlasController extends ChangeNotifier {
-  AtlasController({HeroRepository? repository})
-      : _repo = repository ?? HeroRepository();
+  AtlasController({
+    HeroRepository? repository,
+    UpdateSink? updateSink,
+    DataFileSource? source,
+  }) {
+    final sink = updateSink ?? createPersistentSink();
+    _sink = sink;
+    final resolved = source ??
+        (sink is DataFileSource
+            ? sink as DataFileSource
+            : const BundleOnlySource());
+    _source = resolved;
+    _repo = repository ?? HeroRepository(source: resolved);
+  }
 
-  final HeroRepository _repo;
-  final InMemoryUpdateSink _sink = InMemoryUpdateSink();
+  late final UpdateSink _sink;
+  late final DataFileSource _source;
+  late final HeroRepository _repo;
+
+  /// 给 widget 树的 DataFileScope 用。
+  DataFileSource get source => _source;
 
   AtlasStatus status = AtlasStatus.loading;
   String? errorMessage;
@@ -58,6 +76,11 @@ class AtlasController extends ChangeNotifier {
       );
 
   Future<void> init() async {
+    // 载入已落盘的更新元数据。测试环境没有 path_provider 插件、或用户禁了
+    // 存储权限时会抛，静默降级成纯随包数据，不能让首屏白屏。
+    try {
+      await _source.prime();
+    } catch (_) {}
     try {
       await _repo.load();
       selectedVersion =
@@ -184,10 +207,10 @@ class AtlasController extends ChangeNotifier {
     );
   }
 
-  /// 接上 GitUpdateService：拉远端 manifest → 比 version → 报告待更新文件数。
-  /// 第一版固定 dryRun（只检查不落盘）：持久化 sink 与图片策略还没接，
-  /// 真下载下来也没有地方用。填了 Env.githubRepo 后这一条即刻生效。
-  Future<void> checkUpdate() async {
+  /// 检查并应用更新：浮动分支发现新版本 → 锁到新 tag 增量下载 → sha256
+  /// 校验 → 落盘 → 重新加载 Repository，让新数据在本次会话立即生效。
+  /// 传 apply:false 只报告待更新文件数，不下载。
+  Future<void> checkUpdate({bool apply = true}) async {
     if (status != AtlasStatus.ready) return;
     if (!Env.hasRemote) {
       updateResult = UpdateResult(
@@ -202,11 +225,22 @@ class AtlasController extends ChangeNotifier {
     notifyListeners();
     final service = GitUpdateService(
       baseUrls: Env.dataBaseUrls(dataVersion),
+      manifestUrls: Env.manifestUrls(),
+      urlBuilder: Env.dataBaseUrls,
       sink: _sink,
-      requestTimeout: const Duration(seconds: 8),
+      requestTimeout: const Duration(seconds: 12),
     );
     try {
-      updateResult = await service.checkAndApply(seed: data.seed, dryRun: true);
+      final r = await service.checkAndApply(seed: data.seed, dryRun: !apply);
+      updateResult = r;
+      if (apply && r.status == UpdateStatus.updated) {
+        await _repo.reload();
+        if (!data.versions.any((v) => v.id == selectedVersion)) {
+          selectedVersion =
+              data.versions.isEmpty ? '' : data.versions.first.id;
+        }
+        _visible = null;
+      }
     } catch (e) {
       updateResult = UpdateResult(
         status: UpdateStatus.invalidManifest,

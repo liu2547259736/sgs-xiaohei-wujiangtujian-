@@ -38,6 +38,9 @@ dependencies:
   # 数据仓库增量更新（六端共用，见 lib/core/sync/）
   http: ^1.2.0
   crypto: ^3.0.3
+  # 生产 UpdateSink：native 落应用支持目录，Web 落 IndexedDB
+  path_provider: ^2.1.5
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
@@ -67,6 +70,9 @@ flutter:
     # >>> seed-assets:begin >>>
     - assets/seed/
     - assets/seed/heroes/
+    - assets/seed/history/
+    - assets/seed/history/books/
+    - assets/seed/history/contents/
     - assets/seed/images/gjf/av/
     - assets/seed/images/hlsgs/av/
     - assets/seed/images/msgs/av/

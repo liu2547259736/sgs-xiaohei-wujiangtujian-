@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/sync/data_file_scope.dart';
 import 'data/atlas_controller.dart';
 import 'ui/atlas_page.dart';
 
@@ -31,13 +32,16 @@ class _AtlasAppState extends State<AtlasApp> {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
-      builder: (_, _) => MaterialApp(
-        title: '三国杀武将图鉴',
-        debugShowCheckedModeBanner: false,
-        themeMode: _controller.themeMode,
-        theme: _theme(Brightness.light),
-        darkTheme: _theme(Brightness.dark),
-        home: AtlasPage(controller: _controller),
+      builder: (_, _) => DataFileScope(
+        source: _controller.source,
+        child: MaterialApp(
+          title: '三国杀武将图鉴',
+          debugShowCheckedModeBanner: false,
+          themeMode: _controller.themeMode,
+          theme: _theme(Brightness.light),
+          darkTheme: _theme(Brightness.dark),
+          home: AtlasPage(controller: _controller),
+        ),
       ),
     );
   }

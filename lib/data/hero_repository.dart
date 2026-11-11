@@ -2,15 +2,13 @@
 //
 // 设计要点：
 //  1. 首屏只读 3 个文件（seed.json / heroes/index.json / search_index.json，约 2 MB），
-//     3740 张卡片立刻能渲染；完整详情按版本懒加载分片，切到哪个版本才读哪个。
+//     全量卡片立刻能渲染；完整详情按版本懒加载分片，切到哪个版本才读哪个。
 //  2. 分片清单从 seed.json 的 files[] 推导，不写死「11 个分片 / 每片 500 将」，
 //     以后本体增删武将、改分片大小，App 一行都不用改。
 //  3. 排序沿用主程序 ordKey() 的口径：g.ord 升序，缺省 1e9 排末尾。
 import 'dart:convert';
 
-import 'package:flutter/services.dart' show rootBundle;
-
-import '../core/seed_asset.dart';
+import '../core/sync/data_file_source.dart';
 import '../core/sync/update_protocol.dart';
 import 'models.dart';
 
@@ -57,6 +55,9 @@ class _SearchMeta {
 }
 
 class HeroRepository {
+  HeroRepository({this.source = const BundleOnlySource()});
+
+  final DataFileSource source;
   AtlasData? _data;
   final Map<String, Map<String, HeroDetail>> _details =
       <String, Map<String, HeroDetail>>{};
@@ -64,13 +65,31 @@ class HeroRepository {
   bool get isLoaded => _data != null;
   AtlasData get data => _data!;
 
+  /// 更新落盘后调用：丢掉内存缓存重新读，让新分片 / 新头像立即生效。
+  Future<AtlasData> reload() async {
+    _data = null;
+    _details.clear();
+    return load();
+  }
+
+  /// 更新落盘后，远端 manifest 会覆盖随包的 seed.json 描述符，
+  /// 让版本号、counts 和分片清单都跟着新版本走。
+  Future<String> _seedDescriptor() async {
+    if (source.hasOverride('manifest.json')) {
+      try {
+        return await readDataString(source, 'manifest.json');
+      } catch (_) {}
+    }
+    return readDataString(source, 'seed.json');
+  }
+
   Future<AtlasData> load() async {
     if (_data != null) return _data!;
 
     final results = await Future.wait<String>(<Future<String>>[
-      rootBundle.loadString(SeedAsset.seedDescriptor),
-      rootBundle.loadString(SeedAsset.heroIndex),
-      rootBundle.loadString(SeedAsset.searchIndex),
+      _seedDescriptor(),
+      readDataString(source, 'heroes/index.json'),
+      readDataString(source, 'meta/search_index.json'),
     ]);
 
     final seed = DataManifest.fromJson(
@@ -142,7 +161,7 @@ class HeroRepository {
     if (cached != null) return cached;
     final out = <String, HeroDetail>{};
     for (final path in data.shardsByVersion[version] ?? const <String>[]) {
-      final raw = await rootBundle.loadString(SeedAsset.of(path));
+      final raw = await readDataString(source, path);
       final j = (jsonDecode(raw) as Map<String, dynamic>)['data'] as Map;
       for (final item in (j['generals'] as List? ?? const <dynamic>[])) {
         final d = HeroDetail.fromJson(
@@ -166,7 +185,7 @@ class HeroRepository {
     return false;
   }
 
-  /// 本地实时筛选。全部在内存里跑，3740 条无需额外索引或 isolate。
+  /// 本地实时筛选。全部在内存里跑，全量数据无需额外索引或 isolate。
   List<HeroSummary> query({
     required String version,
     String kingdom = 'all',

@@ -137,7 +137,7 @@ abstract class UpdateSink {
   /// 当前已生效的数据版本；首次启动返回 null。
   Future<String?> appliedVersion();
 
-  /// path -> sha256，尽量一次读出（8221 条约 1 MB）。
+  /// path -> sha256，尽量一次读出（约 8500 条约 1 MB）。
   Future<Map<String, String>> appliedHashes();
 
   /// 开始一次更新，可用来建临时区。默认空实现。

@@ -11,7 +11,24 @@ class Env {
 
   static const String tagPrefix = 'data-v';
 
+  /// 数据仓库的默认分支，只用来「发现最新版本」。
+  /// 不能把文件下载也固定到本地版本对应的 tag 上 —— tag 是 immutable，
+  /// 那样永远只能拉到自己这一版，检查更新形同虚设。
+  static const String defaultBranch = 'master';
+
   static bool get hasRemote => githubRepo.isNotEmpty;
+
+  /// 版本发现源：指向浮动分支的 manifest.json，返回最新版本字符串。
+  static List<String> manifestUrls() {
+    if (!hasRemote) return const <String>[];
+    return <String>[
+      'https://fastly.jsdelivr.net/gh/$githubRepo@$defaultBranch',
+      'https://gcore.jsdelivr.net/gh/$githubRepo@$defaultBranch',
+      'https://testingcf.jsdelivr.net/gh/$githubRepo@$defaultBranch',
+      'https://cdn.jsdelivr.net/gh/$githubRepo@$defaultBranch',
+      'https://raw.githubusercontent.com/$githubRepo/$defaultBranch',
+    ];
+  }
 
   /// 数据源按顺序自动回退。tag 是 immutable，命中后天然永久缓存。
   ///

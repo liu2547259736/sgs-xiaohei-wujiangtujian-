@@ -13,13 +13,15 @@ void main() {
     await repo.load();
   });
 
-  test('随包 seed 能加载 6 版本 / 3740 将 / 分片详情', () async {
+  test('随包 seed 能加载 6 版本 / 全量武将 / 分片详情', () async {
     final data = repo.data;
 
     expect(data.version, isNotEmpty);
     expect(data.versions.length, 6);
-    expect(data.heroes.length, 3740);
-    expect(data.heroCount, 3740);
+    // 不写死总数：主程序每次加将后重新同步 seed，这里只保证索引与条目一致，
+    // 且不少于当前基线 3745，避免数据回退时测试仍然通过。
+    expect(data.heroes.length, data.heroCount);
+    expect(data.heroCount, greaterThanOrEqualTo(3745));
     expect(data.shardsByVersion.length, 6);
     expect(data.shardsByVersion['sgsol']?.length, 2);
 

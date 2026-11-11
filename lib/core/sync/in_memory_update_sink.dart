@@ -1,12 +1,9 @@
-// UpdateSink 的最小可用实现：主要用于单元测试和 Web 端原型。
+// UpdateSink 的内存实现：单元测试专用，不持久化。
 //
-// 生产实现请另写（P1 接入时替换）：
-//   native：lib/core/sync/file_update_sink_io.dart
-//           appliedHashes 从 drift 表读；begin 建 temp 目录；
-//           commit 用 Directory.rename 原子切换 + 写 version；rollback 删 temp。
-//   Web   ：lib/core/sync/web_update_sink.dart
-//           appliedHashes 从 shared_preferences 读；write 存 IndexedDB；
-//           图片交给浏览器 HTTP 缓存，不进本地库。
+// 生产实现见 persistent_update_sink.dart 的条件导出：
+//   native：update_sink_io.dart，落 ApplicationSupportDirectory/sgs_data/
+//   Web   ：update_sink_web.dart，落 IndexedDB
+// 两者同时实现 DataFileSource，下载完的文件会直接被 Repository 读到。
 //
 // 这个文件不引 dart:io，六端都能编译。
 import 'dart:typed_data';

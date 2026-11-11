@@ -47,7 +47,7 @@ class _AtlasPageState extends State<AtlasPage> {
               onPressed: c.toggleTheme,
             ),
             IconButton(
-              tooltip: '检查数据更新',
+              tooltip: '检查并应用数据更新',
               icon: c.checkingUpdate
                   ? const SizedBox(
                       width: 18,

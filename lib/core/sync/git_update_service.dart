@@ -36,6 +36,8 @@ class GitUpdateService {
   GitUpdateService({
     required this.baseUrls,
     required this.sink,
+    this.manifestUrls,
+    this.urlBuilder,
     http.Client? client,
     this.maxParallel = 4,
     this.requestTimeout = const Duration(seconds: 20),
@@ -44,6 +46,14 @@ class GitUpdateService {
         _ownsClient = client == null;
 
   final List<String> baseUrls;
+
+  /// 版本发现源（浮动分支）。不传则直接用 baseUrls，行为与旧版一致。
+  final List<String>? manifestUrls;
+
+  /// 拿到远端 version 后，按该版本重新生成文件源（immutable tag）。
+  /// 不传则所有文件都从 baseUrls 拉。
+  final List<String> Function(String version)? urlBuilder;
+
   final UpdateSink sink;
   final int maxParallel;
   final Duration requestTimeout;
@@ -70,9 +80,9 @@ class GitUpdateService {
 
     // 1. 取远端 manifest，任一镜像成功即可。
     DataManifest? remote;
-    String? workingBase;
+    Uint8List? manifestBytes;
     Object? manifestError;
-    for (final base in baseUrls) {
+    for (final base in (manifestUrls ?? baseUrls)) {
       try {
         final resp = await _client
             .get(Uri.parse(_join(base, 'manifest.json')))
@@ -83,13 +93,13 @@ class GitUpdateService {
         }
         remote = DataManifest.fromJson(
             jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>);
-        workingBase = base;
+        manifestBytes = resp.bodyBytes;
         break;
       } catch (e) {
         manifestError = e;
       }
     }
-    if (remote == null || workingBase == null) {
+    if (remote == null) {
       return UpdateResult(
         status: UpdateStatus.offline,
         version: currentVersion,
@@ -108,6 +118,12 @@ class GitUpdateService {
         .toList(growable: false);
     final pendingBytes = pending.fold<int>(0, (sum, f) => sum + f.bytes);
 
+    // 版本发现走浮动分支，但文件必须锁到远端版本对应的 immutable tag，
+    // 否则下载途中分支又更新，会出现 manifest 与文件版本错配。
+    final built = urlBuilder == null ? null : urlBuilder!(remote.version);
+    final fileSources =
+        (built == null || built.isEmpty) ? baseUrls : built;
+
     if (dryRun) {
       return UpdateResult(
         status: UpdateStatus.updateAvailable,
@@ -119,6 +135,7 @@ class GitUpdateService {
     if (pending.isEmpty) {
       // 只有 version 变了、文件内容没变：直接推进版本号。
       await sink.begin();
+      await _writeManifest(manifestBytes);
       await sink.commit(remote.version, remote.hashByPath);
       return UpdateResult(
           status: UpdateStatus.updated, version: remote.version);
@@ -126,6 +143,7 @@ class GitUpdateService {
 
     // 3. 分批下载，每个文件校验 size + sha256；边下边写，不把全量放内存。
     await sink.begin();
+    await _writeManifest(manifestBytes);
     var downloaded = 0;
     var phase = 'download';
     final changed = <String>[];
@@ -134,7 +152,7 @@ class GitUpdateService {
         phase = 'download';
         final batch = pending.skip(i).take(maxParallel).toList(growable: false);
         final fetched = await Future.wait(
-          batch.map((f) => _fetch(workingBase!, f)),
+          batch.map((f) => _fetch(fileSources, f)),
         );
         phase = 'write';
         for (final item in fetched) {
@@ -167,10 +185,9 @@ class GitUpdateService {
   }
 
   /// 单文件下载，主源失败时自动试其它镜像。
-  Future<_Fetched> _fetch(String primary, DataFileEntry entry) async {
-    final ordered = <String>[primary, ...baseUrls.where((b) => b != primary)];
+  Future<_Fetched> _fetch(List<String> sources, DataFileEntry entry) async {
     Object? lastError;
-    for (final base in ordered) {
+    for (final base in sources) {
       try {
         final resp = await _client
             .get(Uri.parse(_join(base, entry.path)))
@@ -194,6 +211,12 @@ class GitUpdateService {
       }
     }
     throw StateError('${entry.path}: $lastError');
+  }
+
+  /// 把远端 manifest 一并写进覆盖层：Repository 会优先用它当 seed 基线，
+  /// 这样更新后页面里的「数据版本」和分片清单能立刻跟着新版本走。
+  Future<void> _writeManifest(Uint8List? bytes) async {
+    if (bytes != null) await sink.write('manifest.json', bytes);
   }
 
   static String _join(String base, String path) {
