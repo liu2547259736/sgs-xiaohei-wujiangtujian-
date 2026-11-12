@@ -1,5 +1,7 @@
-# Uncomment this line to define a global platform for your project
-platform :ios, '13.0'
+# Flutter 3.47 的 Flutter.podspec 要求最低 iOS 15.0；
+# 必须与 Runner.xcodeproj 里的 IPHONEOS_DEPLOYMENT_TARGET = 15.0 保持一致，
+# 否则 pod install 会报 "required a higher minimum deployment target"。
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
