@@ -10,6 +10,7 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
+import '../core/env.dart';
 import 'shell_assets.dart';
 import 'shell_config.dart';
 
@@ -17,14 +18,19 @@ class ShellServer {
   /// 测试可注入覆盖层目录；不传则用 ApplicationSupportDirectory/sgs_data。
   // 显式赋值而非 initializing formal：字段名是私有实现细节，不做公开参数名。
   // 测试可注入覆盖层目录与随包资源；不传则走真实平台目录与 asset bundle。
-  ShellServer({Directory? dataDir, ShellAssets? assets}) {
+  /// [skinBase] 仅供测试注入；不传则用 Env.skinCdnBase。
+  ShellServer({Directory? dataDir, ShellAssets? assets, String? skinBase}) {
     _dataDir = dataDir;
     _assets = assets;
+    _skinBaseOverride = skinBase;
   }
 
   HttpServer? _server;
   ShellAssets? _assets;
   Directory? _dataDir;
+  String? _skinBaseOverride;
+
+  String get _skinCdnBase => _skinBaseOverride ?? Env.skinCdnBase;
 
   int? get port => _server?.port;
   String get version => _assets?.version ?? '0';
@@ -80,6 +86,16 @@ class ShellServer {
         return;
       }
 
+      // 皮肤大图不随包（706 MB），走独立皮肤仓 CDN。302 让 WebView 直接
+      // 向 CDN 取图并自行缓存，不把图片下载到设备覆盖层。
+      final skinUrl = _skinRedirect(rel, req.uri.query);
+      if (skinUrl != null) {
+        req.response.statusCode = HttpStatus.found;
+        req.response.headers.set(HttpHeaders.locationHeader, skinUrl);
+        await req.response.close();
+        return;
+      }
+
       // 原页面有两个可选的资讯同步接口（api/olnews/sync、api/x10news/sync），
       // 纯离线场景下静默 404 即可，主界面不依赖它们。
       req.response.statusCode = HttpStatus.notFound;
@@ -90,6 +106,18 @@ class ShellServer {
         await req.response.close();
       } catch (_) {}
     }
+  }
+
+  /// 只重定向皮肤大图；其它路径（含语音、数据）仍按原有规则处理。
+  static final RegExp _skinPath = RegExp(r'^images/[^/]+/sk/[^/]+\.webp$');
+
+  /// 透传 `?iv=N` 破缓存参数，避免 CDN / WebView 命中旧图。
+  String? _skinRedirect(String rel, String query) {
+    final base = _skinCdnBase;
+    if (base.isEmpty || !_skinPath.hasMatch(rel)) return null;
+    final b = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
+    final url = '$b/$rel';
+    return query.isEmpty ? url : '$url?$query';
   }
 
   Future<void> _send(HttpRequest req, String rel, List<int> bytes) async {

@@ -48,9 +48,9 @@ class _SettingsPageState extends State<SettingsPage> {
         children: <Widget>[
           _title(context, '外部资源根'),
           Text(
-            '皮肤 12901 张 / 706 MB、语音 26556 个 / 1621 MB 按规则不进 git、'
-            '不随包、不在数据 CDN 里。把主程序的 images/ 目录挂到任意 http 静态服务，'
-            '把访问前缀填在下面即可按需加载。留空 = 不加载，绝不会请求无效地址。',
+            '皮肤 12901 张 / 706 MB 已托管到独立仓 sgs-skins 的 CDN，'
+            '壳会自动把皮肤请求转到 CDN；语音 26556 个 / 1621 MB 仍不进 git、不随包。'
+            '自建静态站时把访问前缀填在下面；留空 = 主动禁用，不请求无效地址。',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 10),

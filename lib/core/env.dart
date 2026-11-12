@@ -16,6 +16,17 @@ class Env {
   /// 那样永远只能拉到自己这一版，检查更新形同虚设。
   static const String defaultBranch = 'master';
 
+  /// 皮肤图独立仓：12901 张 webp / 706.6 MB，按原 URL 路径平铺，
+  /// 不放进数据仓库（会把 sgs-data 顶到 954 MB，逼近 1 GB 上限）。
+  ///
+  /// 原页面按 `images/<ver>/sk/<name>.webp` 相对路径请求皮肤，
+  /// ShellServer 会把这类请求 302 到这里，由 WebView 直接向 CDN 取图并自行缓存，
+  /// **不把 706 MB 下载到设备覆盖层**。带 `?iv=N` 破缓存参数时原样透传。
+  static const String skinRepo = 'liu2547259736/sgs-skins';
+  static const String skinBranch = 'main';
+  static const String skinCdnBase =
+      'https://cdn.jsdelivr.net/gh/$skinRepo@$skinBranch/';
+
   static bool get hasRemote => githubRepo.isNotEmpty;
 
   /// 版本发现源：指向浮动分支的 manifest.json，返回最新版本字符串。

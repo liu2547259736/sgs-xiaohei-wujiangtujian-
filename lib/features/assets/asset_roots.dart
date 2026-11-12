@@ -1,9 +1,9 @@
 // 皮肤大图 / 语音资源的「资源根」配置。
 //
-// 设计约束：皮肤 12901 张（706 MB）、语音 26556 个（1621 MB）按既定规则
-// **不进 git、不随包、不在 CDN 数据仓库里**。所以 Flutter 端不能凭空显示它们，
-// 这里给用户一个可配置的资源根：填了就能真加载/真播放，没填就明确标注
-// 「资源未托管」，不写假图、不放哑按钮。
+// 设计约束：皮肤 12901 张（706 MB）已托管到独立仓 sgs-skins 的 CDN；
+// 语音 26556 个（1621 MB）仍按既定规则不进 git、不随包。
+// 壳里皮肤由 ShellServer 统一 302 到 Env.skinCdnBase；这里保留可配置入口，
+// 设置页留空 = 主动禁用，不写假图、不放哑按钮。
 //
 // 资源根可以是任意 http(s) 前缀（对象存储 / 自建静态站 / 本机起的静态服务），
 // 路径按主程序规则原样拼接，方便直接把主程序的 images/ 目录挂上去：
@@ -16,10 +16,15 @@ const String kSkinBaseKey = 'sgs_asset_skin_base';
 const String kVoiceBaseKey = 'sgs_asset_voice_base';
 
 class AssetRoots extends ChangeNotifier {
-  AssetRoots({SharedPreferences? prefs}) {
+  /// [defaultSkinBase] 默认空串，保持「未配置」语义（测试 / 主动禁用）。
+  /// 当前 WebView 壳不挂载 Dart 原生页面，皮肤实际由 ShellServer 302 到
+  /// Env.skinCdnBase 提供；若将来重新挂载原生皮肤页，构造时传入
+  /// `defaultSkinBase: Env.skinCdnBase` 即可。
+  AssetRoots({SharedPreferences? prefs, this.defaultSkinBase = ''}) {
     _prefs = prefs;
   }
 
+  final String defaultSkinBase;
   SharedPreferences? _prefs;
   String _skinBase = '';
   String _voiceBase = '';
@@ -34,7 +39,7 @@ class AssetRoots extends ChangeNotifier {
   Future<void> init() async {
     if (_ready) return;
     final p = _prefs ??= await SharedPreferences.getInstance();
-    _skinBase = p.getString(kSkinBaseKey) ?? '';
+    _skinBase = p.getString(kSkinBaseKey) ?? defaultSkinBase;
     _voiceBase = p.getString(kVoiceBaseKey) ?? '';
     _ready = true;
     notifyListeners();
@@ -58,7 +63,7 @@ class AssetRoots extends ChangeNotifier {
     return '$b/$r';
   }
 
-  /// 皮肤图完整 URL；未配置时返回 null，调用方应显示占位与说明。
+  /// 皮肤图完整 URL；未配置（或被主动留空）时返回 null，调用方应显示占位与说明。
   String? skinUrl(String relPath) {
     if (!hasSkinSource || relPath.isEmpty) return null;
     return _join(_skinBase, relPath);
