@@ -32,7 +32,13 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: dart analyze
-      - run: flutter test
+      # shell-assets 是 8953 个 / 219MB 的随包原页面资源，flutter test 会把
+      # 它们全部打进测试 asset bundle，构建慢到不可用；测试只依赖 assets/seed。
+      # CI 是一次性环境，直接删区块即可，无需像本机 tools/run_tests.py 那样恢复。
+      - name: 测试（临时剔除随包页面资源）
+        run: |
+          sed -i '/# >>> shell-assets:begin >>>/,/# <<< shell-assets:end <<</d' pubspec.yaml
+          flutter test --no-pub --concurrency=1
 
   web:
     # Web 端 1:1：直接发布随包的原页面，不跑 flutter build web。
