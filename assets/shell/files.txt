@@ -687,6 +687,9 @@ data/ol_news/covers/20261103_7967_0714.webp
 data/ol_news/covers/20261104_1730_3217.webp
 data/ol_news/covers/20261104_9682_0011.webp
 data/ol_news/covers/20261106_5864_1113.webp
+data/ol_news/covers/20261111_6566_5413.webp
+data/ol_news/covers/20261112_2659_1518.webp
+data/ol_news/covers/20261112_3091_2013.webp
 data/sgs/characters.json
 data/sgs/female_skins.json
 data/sgs/pack_icons.json
@@ -719,6 +722,7 @@ data/x10_news/covers/20261014_7187_0916.png
 data/x10_news/covers/20261021_3130_5714.png
 data/x10_news/covers/20261029_2026_0611.png
 data/x10_news/covers/20261106_6706_0917.png
+data/x10_news/covers/20261113_2450_3910.png
 data/x10_news/heroes/乐曹植.png
 data/x10_news/heroes/于毒.png
 data/x10_news/heroes/傅干.png
@@ -2452,6 +2456,7 @@ images/hlsgs/av/hlsgs_mousimashi.webp
 images/hlsgs/av/hlsgs_mousimayi.webp
 images/hlsgs/av/hlsgs_mousunquan.webp
 images/hlsgs/av/hlsgs_mousunshangxiang.webp
+images/hlsgs/av/hlsgs_mouwangling.webp
 images/hlsgs/av/hlsgs_mouwuyi.webp
 images/hlsgs/av/hlsgs_mouxiahoudun.webp
 images/hlsgs/av/hlsgs_mouxiahoushi.webp
@@ -3118,6 +3123,7 @@ images/hlsgs/il/hlsgs_mousimashi.webp
 images/hlsgs/il/hlsgs_mousimayi.webp
 images/hlsgs/il/hlsgs_mousunquan.webp
 images/hlsgs/il/hlsgs_mousunshangxiang.webp
+images/hlsgs/il/hlsgs_mouwangling.webp
 images/hlsgs/il/hlsgs_mouwuyi.webp
 images/hlsgs/il/hlsgs_mouxiahoudun.webp
 images/hlsgs/il/hlsgs_mouxiahoushi.webp
@@ -7506,6 +7512,7 @@ images/sgsol/av/yj_zhuhuan.webp
 images/sgsol/av/yj_zhuran.webp
 images/sgsol/av/yj_zhuzhi.webp
 images/sgsol/av/zu_zuchenqun.webp
+images/sgsol/av/zu_zuchentai.webp
 images/sgsol/av/zu_zuhanrong.webp
 images/sgsol/av/zu_zuhanshao.webp
 images/sgsol/av/zu_zuluji.webp
@@ -8207,6 +8214,7 @@ images/sgsol/il/yj_zhuhuan.webp
 images/sgsol/il/yj_zhuran.webp
 images/sgsol/il/yj_zhuzhi.webp
 images/sgsol/il/zu_zuchenqun.webp
+images/sgsol/il/zu_zuchentai.webp
 images/sgsol/il/zu_zuhanrong.webp
 images/sgsol/il/zu_zuhanshao.webp
 images/sgsol/il/zu_zuluji.webp
