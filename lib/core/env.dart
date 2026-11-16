@@ -46,25 +46,34 @@ class Env {
       'https://testingcf.jsdelivr.net/gh/$githubRepo@$defaultBranch',
       'https://cdn.jsdelivr.net/gh/$githubRepo@$defaultBranch',
       'https://raw.githubusercontent.com/$githubRepo/$defaultBranch',
+      // jsDelivr 四域名共用同一个 GitHub 回源，一起挂时仍需要一个独立兜底。
+      'https://gh-proxy.com/https://raw.githubusercontent.com/$githubRepo/$defaultBranch',
     ];
   }
 
   /// 数据源按顺序自动回退。tag 是 immutable，命中后天然永久缓存。
   ///
-  /// 顺序依据 2026-11-12 实测：fastly 对约 3MB 以上的文件
-  /// （fonts/sgs-juan.woff2 3.4MB）返回 403「Package size exceeded 50 MB」，
-  /// gcore / testingcf / cdn / raw 则全部 200。版本发现仍走 fastly
-  /// （1.1MB manifest 实测秒回），这里只调整文件下载的优先级，
-  /// 免得每个大文件都先白跑一次 403。任一源失败会自动回退到下一个。
+  /// **必须包含真正独立的服务商**：jsDelivr 的 gcore / testingcf / fastly /
+  /// cdn 四个域名共用同一个 GitHub 回源。2026-11-17 实测
+  /// `data/sgsol/characters.json`（2.9MB）在这四个域名上全部超时
+  /// （0 字节 / 45s），加 query 破缓存也无效；同一文件经 gh-proxy.com
+  /// 3~6 秒即可拉全，内容与 GitHub API 记录的 3054580 字节一致。
+  /// 只靠 jsDelivr 会让一个卡死的文件拖垮整批更新（整批回滚），
+  /// 所以 jsDelivr 只留最快的两个，中间插独立加速代理做真回退。
+  ///
+  /// 2026-11-12 的另一条依据：fastly 对约 3MB 以上的文件返回 403
+  /// 「Package size exceeded 50 MB」，所以它排在后面。
   static List<String> dataBaseUrls(String version) {
     if (!hasRemote) return const <String>[];
     final tag = '$tagPrefix$version';
+    final raw = 'https://raw.githubusercontent.com/$githubRepo/$tag';
     return <String>[
       'https://gcore.jsdelivr.net/gh/$githubRepo@$tag',
+      'https://gh-proxy.com/$raw',
       'https://testingcf.jsdelivr.net/gh/$githubRepo@$tag',
+      'https://ghproxy.net/$raw',
       'https://fastly.jsdelivr.net/gh/$githubRepo@$tag',
-      'https://cdn.jsdelivr.net/gh/$githubRepo@$tag',
-      'https://raw.githubusercontent.com/$githubRepo/$tag',
+      raw,
     ];
   }
 

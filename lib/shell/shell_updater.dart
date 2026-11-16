@@ -77,6 +77,10 @@ class ShellUpdater {
       allowDowngrade: false,
       // jsDelivr 新 tag 刚发布时边缘节点会偶发 403，第二轮通常就通了。
       fetchRounds: 2,
+      // 2.9MB 的 characters.json 在健康源上要 1~6 秒，20 秒默认值对
+      // 移动网络偏紧；45 秒能给到约 520Kbps 的下限，同时卡死源也能
+      // 在可接受时间内放弃、回退到下一源。
+      requestTimeout: const Duration(seconds: 45),
     );
     try {
       return await service.checkAndApply(seed: seed);
