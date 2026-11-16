@@ -24,7 +24,8 @@ class ShellApp extends StatefulWidget {
 }
 
 class _ShellAppState extends State<ShellApp> with WidgetsBindingObserver {
-  final ShellServer _server = ShellServer();
+  late final ShellServer _server =
+      ShellServer(onCheckUpdate: _onCheckUpdate);
   final ShellReloader _reloader = ShellReloader();
   ShellUpdater? _updater;
   String? _url;
@@ -65,6 +66,40 @@ class _ShellAppState extends State<ShellApp> with WidgetsBindingObserver {
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = '$e');
+    }
+  }
+
+  /// 注入脚本的更新桥：dry=1 只查，dry=0 真下载。
+  /// 更新成功后由页面脚本自己 reload，这里不重复触发。
+  Future<Map<String, Object?>> _onCheckUpdate({required bool dry}) async {
+    final updater = _updater ??= ShellUpdater();
+    final r = dry ? await updater.checkOnly() : await updater.checkAndApply();
+    switch (r.status) {
+      case UpdateStatus.updated:
+        return <String, Object?>{'status': 'updated', 'version': r.version};
+      case UpdateStatus.upToDate:
+        return <String, Object?>{'status': 'up_to_date', 'version': r.version};
+      case UpdateStatus.updateAvailable:
+        return <String, Object?>{
+          'status': 'update_available',
+          'version': r.version,
+          'files': r.pendingCount,
+          'mb': (r.pendingBytes / 1048576).toStringAsFixed(1),
+        };
+      case UpdateStatus.offline:
+      case UpdateStatus.invalidManifest:
+        return <String, Object?>{
+          'status': 'offline',
+          'version': r.version,
+          'message': r.message ?? '取不到版本清单',
+        };
+      case UpdateStatus.downloadFailed:
+      case UpdateStatus.writeFailed:
+        return <String, Object?>{
+          'status': 'failed',
+          'version': r.version,
+          'message': r.message ?? '下载或写入失败',
+        };
     }
   }
 

@@ -59,7 +59,8 @@ class ShellUpdater {
     );
   }
 
-  Future<UpdateResult> checkAndApply() async {
+  /// 只检查不下载：给「检测更新」按钮第一步用，1~2 秒出结果。
+  Future<UpdateResult> checkOnly() async {
     final seed = await _seedBaseline();
     if (!Env.hasRemote) {
       return UpdateResult(
@@ -68,7 +69,15 @@ class ShellUpdater {
         message: Env.notConfigured,
       );
     }
-    final service = GitUpdateService(
+    final service = _service(seed);
+    try {
+      return await service.checkAndApply(seed: seed, dryRun: true);
+    } finally {
+      service.dispose();
+    }
+  }
+
+  GitUpdateService _service(DataManifest seed) => GitUpdateService(
       baseUrls: Env.dataBaseUrls(seed.version),
       manifestUrls: Env.manifestUrls(),
       urlBuilder: Env.dataBaseUrls,
@@ -80,8 +89,19 @@ class ShellUpdater {
       // 2.9MB 的 characters.json 在健康源上要 1~6 秒，20 秒默认值对
       // 移动网络偏紧；45 秒能给到约 520Kbps 的下限，同时卡死源也能
       // 在可接受时间内放弃、回退到下一源。
-      requestTimeout: const Duration(seconds: 45),
-    );
+    requestTimeout: const Duration(seconds: 45),
+  );
+
+  Future<UpdateResult> checkAndApply() async {
+    final seed = await _seedBaseline();
+    if (!Env.hasRemote) {
+      return UpdateResult(
+        status: UpdateStatus.offline,
+        version: seed.version,
+        message: Env.notConfigured,
+      );
+    }
+    final service = _service(seed);
     try {
       return await service.checkAndApply(seed: seed);
     } finally {
