@@ -135,7 +135,8 @@ jobs:
       - run: flutter pub get
       - run: flutter build linux --release
       - name: 打包 bundle
-        run: tar -czf sgs-heroes-linux.tar.gz -C build/linux/x64/release .
+        # 只打 bundle/ 内容；release/ 下还有 CMake 中间文件，整目录打包会混进交付包
+        run: tar -czf sgs-heroes-linux.tar.gz -C build/linux/x64/release/bundle .
       - uses: actions/upload-artifact@v4
         with:
           name: sgs-heroes-linux

@@ -24,8 +24,12 @@ class Env {
   /// **不把 706 MB 下载到设备覆盖层**。带 `?iv=N` 破缓存参数时原样透传。
   static const String skinRepo = 'liu2547259736/sgs-skins';
   static const String skinBranch = 'main';
+  /// 默认走 gcore.jsdelivr.net：cdn.jsdelivr.net 在国内直连 TLS 握手失败
+  /// （2026-11-12、11-16 两次实测 HTTP 000，挂代理才 200），
+  /// gcore / testingcf 可直连。数据仓的多源列表里仍保留 cdn 作兜底，
+  /// 但皮肤是 <img> 单源直取、没有回退机会，所以这里必须可直连。
   static const String skinCdnBase =
-      'https://cdn.jsdelivr.net/gh/$skinRepo@$skinBranch/';
+      'https://gcore.jsdelivr.net/gh/$skinRepo@$skinBranch/';
 
   static bool get hasRemote => githubRepo.isNotEmpty;
 
