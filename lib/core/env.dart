@@ -77,5 +77,14 @@ class Env {
     ];
   }
 
+  /// 壳内本地 server 的首选端口，必须固定。
+  ///
+  /// 原页面的账号（`services/localAuth.js`）、收藏、历史、主题偏好全部存在
+  /// localStorage，而 localStorage 以 **origin（scheme://host:port）** 为键。
+  /// 端口一变就等于换了个站点：注册过的账号、收藏、会话全部读不到，用户看到
+  /// 的就是「登录没保存 / 重启后又要重新注册」。所以这里钉死一个高位端口，
+  /// 只在被占用时才顺延（见 ShellServer._bind）。
+  static const int shellPort = 47821;
+
   static const String notConfigured = '尚未配置数据仓库地址（Env.githubRepo）';
 }

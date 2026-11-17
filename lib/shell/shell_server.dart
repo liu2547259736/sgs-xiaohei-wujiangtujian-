@@ -21,21 +21,25 @@ class ShellServer {
   // 显式赋值而非 initializing formal：字段名是私有实现细节，不做公开参数名。
   // 测试可注入覆盖层目录与随包资源；不传则走真实平台目录与 asset bundle。
   /// [skinBase] 仅供测试注入；不传则用 Env.skinCdnBase。
+  /// [preferredPort] 仅供测试注入；不传则用 Env.shellPort（生产必须固定）。
   ShellServer({
     Directory? dataDir,
     ShellAssets? assets,
     String? skinBase,
+    int? preferredPort,
     this.onCheckUpdate,
   }) {
     _dataDir = dataDir;
     _assets = assets;
     _skinBaseOverride = skinBase;
+    _preferredPort = preferredPort ?? Env.shellPort;
   }
 
   HttpServer? _server;
   ShellAssets? _assets;
   Directory? _dataDir;
   String? _skinBaseOverride;
+  int _preferredPort = Env.shellPort;
 
   /// 「检测更新」按钮的桥。由壳注入：dry=1 只查不下载，dry=0 真下载。
   /// 返回体直接 jsonEncode 给页面脚本。不传时（测试 / 纯静态）不拦截路由，
@@ -58,10 +62,44 @@ class ShellServer {
         _dataDir = null;
       }
     }
-    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final server = await _bind(_preferredPort);
     _server = server;
     server.listen(_handle, onError: (Object _) {});
     return server.port;
+  }
+
+  /// 绑定端口：首选端口 → 顺延 8 个 → 随机兜底。
+  ///
+  /// 为什么必须固定：原页面的账号 / 收藏 / 历史都落在 localStorage，而
+  /// localStorage 以 origin（含端口）为键。之前用 `bind(..., 0)` 每次启动
+  /// 换端口，等于每次都是新站点 —— 注册完重启就找不到账号。顺延只在端口
+  /// 被占用时发生（例如同时开了两个实例），此时如实换端口，不假装成功。
+  Future<HttpServer> _bind(int preferred) async {
+    Object? last;
+    // 首选端口试两次：上一个进程刚退出时端口可能还没完全释放。
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await HttpServer.bind(InternetAddress.loopbackIPv4, preferred);
+      } on SocketException catch (e) {
+        last = e;
+        if (attempt == 0) {
+          await Future<void>.delayed(const Duration(milliseconds: 150));
+        }
+      }
+    }
+    for (var i = 1; i <= 8; i++) {
+      try {
+        return await HttpServer.bind(InternetAddress.loopbackIPv4, preferred + i);
+      } on SocketException catch (e) {
+        last = e;
+      }
+    }
+    try {
+      return await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    } on SocketException catch (e) {
+      last = e;
+    }
+    throw StateError('本地端口绑定失败：$last');
   }
 
   Future<void> stop() async {
