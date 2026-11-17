@@ -96,7 +96,12 @@ class Env {
   ///
   /// 想不改包就换地址：在应用支持目录放一个 `sgs_api_base.txt`（一行，
   /// `http://192.168.1.20:8080`），优先级高于这里，见 ShellServer._resolveApiBase。
-  static const String backendBase = '';
+  ///
+  /// 现在填的是「家里局域网 + 本机回环」两个候选，按顺序试，谁能应答就用谁：
+  /// 手机在家 WiFi → 命中第一个；桌面端本机跑后端 → 命中第二个；
+  /// 两个都不通 → 自动降级成本机账号（离线照样能用）。
+  static const String backendBase =
+      'http://192.168.31.216:8080,http://127.0.0.1:8080';
 
   static const String notConfigured = '尚未配置数据仓库地址（Env.githubRepo）';
 }

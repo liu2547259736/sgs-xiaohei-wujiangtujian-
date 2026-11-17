@@ -296,6 +296,7 @@ audio/bgm-outgame.v1.mp3
 data/cards.json
 data/changelog.json
 data/gameplayRules.json
+data/hero_audit.json
 data/index.json
 data/kepu_stats.json
 data/recent.json
