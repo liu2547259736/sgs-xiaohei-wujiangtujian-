@@ -8955,6 +8955,7 @@ images/wxmini/il/wxmini_zhuhuan.webp
 images/wxmini/il/wxmini_zhuling.webp
 images/wxmini/il/wxmini_zumao.webp
 scripts/series-audit-report.txt
+services/cloudAuth.js
 services/localAuth.js
 types/cards.ts
 types/gameplay.ts

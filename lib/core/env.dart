@@ -86,5 +86,17 @@ class Env {
   /// 只在被占用时才顺延（见 ShellServer._bind）。
   static const int shellPort = 47821;
 
+  /// 账号服务器地址（自己部署的那个零依赖 Python 后端）。
+  ///
+  /// 留空 = App 里关闭云端账号，只用本机账号（与升级前完全一致）。
+  ///
+  /// 为什么必须显式写：页面的自动判断是「同源有 /api 就用」，而 App 的 origin 是
+  /// `http://127.0.0.1:<端口>`，命不中这条规则 —— 所以壳会把这里的值注入成
+  /// `window.SGS_API_BASE` 再交给页面。
+  ///
+  /// 想不改包就换地址：在应用支持目录放一个 `sgs_api_base.txt`（一行，
+  /// `http://192.168.1.20:8080`），优先级高于这里，见 ShellServer._resolveApiBase。
+  static const String backendBase = '';
+
   static const String notConfigured = '尚未配置数据仓库地址（Env.githubRepo）';
 }

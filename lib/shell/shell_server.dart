@@ -22,24 +22,29 @@ class ShellServer {
   // 测试可注入覆盖层目录与随包资源；不传则走真实平台目录与 asset bundle。
   /// [skinBase] 仅供测试注入；不传则用 Env.skinCdnBase。
   /// [preferredPort] 仅供测试注入；不传则用 Env.shellPort（生产必须固定）。
+  /// [apiBase] 仅供测试注入；不传则读应用支持目录的 sgs_api_base.txt，再退回 Env.backendBase。
   ShellServer({
     Directory? dataDir,
     ShellAssets? assets,
     String? skinBase,
     int? preferredPort,
+    String? apiBase,
     this.onCheckUpdate,
   }) {
     _dataDir = dataDir;
     _assets = assets;
     _skinBaseOverride = skinBase;
     _preferredPort = preferredPort ?? Env.shellPort;
+    _apiBaseOverride = apiBase;
   }
 
   HttpServer? _server;
   ShellAssets? _assets;
   Directory? _dataDir;
   String? _skinBaseOverride;
+  String? _apiBaseOverride;
   int _preferredPort = Env.shellPort;
+  String _apiBase = '';
 
   /// 「检测更新」按钮的桥。由壳注入：dry=1 只查不下载，dry=0 真下载。
   /// 返回体直接 jsonEncode 给页面脚本。不传时（测试 / 纯静态）不拦截路由，
@@ -63,9 +68,32 @@ class ShellServer {
       }
     }
     final server = await _bind(_preferredPort);
+    _apiBase = _resolveApiBase();
     _server = server;
     server.listen(_handle, onError: (Object _) {});
     return server.port;
+  }
+
+  /// 账号服务器地址：显式注入 > 应用支持目录的 sgs_api_base.txt > Env.backendBase。
+  ///
+  /// WebView 的 origin 是 127.0.0.1，命不中页面里的「同源自动判断」，
+  /// 所以 App 端必须显式把地址喂给页面，否则云端账号是关着的。
+  String _resolveApiBase() {
+    final injected = _apiBaseOverride;
+    if (injected != null) return injected.trim();
+    try {
+      final parent = _dataDir?.parent;
+      if (parent != null) {
+        final f = File('${parent.path}${Platform.pathSeparator}$kApiBaseFile');
+        if (f.existsSync()) {
+          final s = f.readAsStringSync().trim();
+          if (s.isNotEmpty) return s;
+        }
+      }
+    } catch (_) {
+      // 读不到就用编译期常量，不影响启动
+    }
+    return Env.backendBase.trim();
   }
 
   /// 绑定端口：首选端口 → 顺延 8 个 → 随机兜底。
@@ -256,16 +284,36 @@ class ShellServer {
 ''';
 
   Future<void> _send(HttpRequest req, String rel, List<int> bytes) async {
-    // 入口页注入更新桥；其它资源原样直出。
-    final body = (rel == kShellEntry && onCheckUpdate != null)
-        ? _injectProbe(bytes)
-        : bytes;
+    // 入口页做两处内存注入（磁盘上的 index.html 一个字节都不动）：
+    //   1. <head> 里塞账号服务器地址 —— 必须早于 app.js，否则 initAuth() 已经跑完，
+    //      CloudAuth 会以为没配服务器而整段关掉；
+    //   2. </body> 前塞「检测更新」桥。
+    var body = bytes;
+    if (rel == kShellEntry) {
+      body = _injectApiBase(body, _apiBase);
+      if (onCheckUpdate != null) body = _injectProbe(body);
+    }
     req.response.statusCode = HttpStatus.ok;
     req.response.headers.contentType = _mime(rel);
     req.response.headers
         .add('Cache-Control', 'no-cache');
     req.response.add(body);
     await req.response.close();
+  }
+
+  static const String _apiBaseMarker = '/*sgs-shell-api-base*/';
+
+  /// 在 `<head>` 后插入 `window.SGS_API_BASE`。
+  /// 原页面里那句 `window.SGS_API_BASE = window.SGS_API_BASE || ''` 会保留我们塞进去的值。
+  static Uint8List _injectApiBase(List<int> bytes, String base) {
+    if (base.isEmpty) return Uint8List.fromList(bytes);
+    final html = utf8.decode(bytes, allowMalformed: true);
+    if (html.contains(_apiBaseMarker)) return Uint8List.fromList(bytes);
+    final tag =
+        '<script>$_apiBaseMarker\nwindow.SGS_API_BASE=${jsonEncode(base)};</script>';
+    final at = html.indexOf('<head>');
+    final out = at < 0 ? '$tag$html' : html.replaceRange(at + 6, at + 6, tag);
+    return Uint8List.fromList(utf8.encode(out));
   }
 
   /// 防路径穿越：只接受相对路径，拒绝 ./、../、空段。
