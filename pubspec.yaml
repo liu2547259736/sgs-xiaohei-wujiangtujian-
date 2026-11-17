@@ -103,6 +103,7 @@ flutter:
     - assets/shell/assets/cards/special/
     - assets/shell/audio/
     - assets/shell/data/
+    - assets/shell/data/fks/
     - assets/shell/data/gjf/
     - assets/shell/data/history/
     - assets/shell/data/history/books/
@@ -119,6 +120,8 @@ flutter:
     - assets/shell/data/x10_news/heroes/
     - assets/shell/fonts/
     - assets/shell/images/brand/
+    - assets/shell/images/fks/av/
+    - assets/shell/images/fks/il/
     - assets/shell/images/gjf/av/
     - assets/shell/images/gjf/il/
     - assets/shell/images/hlsgs/av/
