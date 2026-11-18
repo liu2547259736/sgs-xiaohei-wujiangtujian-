@@ -97,6 +97,7 @@ flutter:
 
     # >>> shell-assets:begin >>>
     - assets/shell/
+    - assets/shell/_reports/
     - assets/shell/assets/cards/basic/
     - assets/shell/assets/cards/equip/
     - assets/shell/assets/cards/scroll/
