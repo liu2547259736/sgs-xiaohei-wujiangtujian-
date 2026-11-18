@@ -111,14 +111,25 @@ def main():
     items = collect()
     kept = set()
     total = 0
+    copied = 0
+    hashes = {}
     for rpath, src in items:
         dst = os.path.join(DST, *rpath.split('/'))
         os.makedirs(os.path.dirname(dst), exist_ok=True)
-        if not os.path.isfile(dst) or os.path.getsize(dst) != os.path.getsize(src):
+        # 只比大小会漏掉「改内容但不改长度」的编辑 —— 小版本号 3.0.31 → 3.0.40、
+        # ?v= 破缓存串换一个等长哈希，字节数都不变。实测这会让壳里的 index.html
+        # 停在旧版本号好几轮（APP_V 落后、更新说明弹错版本），所以这里比内容哈希。
+        digest = sha256_file(src)
+        if not (os.path.isfile(dst)
+                and os.path.getsize(dst) == os.path.getsize(src)
+                and sha256_file(dst) == digest):
             shutil.copy2(src, dst)
+            copied += 1
+            digest = sha256_file(dst)
         size = os.path.getsize(dst)
         total += size
         kept.add(rpath)
+        hashes[rpath] = digest
 
     # 镜像清理：源里已不存在的文件，随包也删掉（不碰自身产出的两个清单）
     self_files = {'files.txt', 'shell.json', 'shell_hashes.json'}
@@ -159,17 +170,15 @@ def main():
 
     # 随包基线：路径就是原页面 URL 路径，也就是 data-repo 相对路径。
     # App 首次启动时把它登记进 UpdateSink，之后只拉 hash 变化的文件。
-    hashes = {
-        r: sha256_file(os.path.join(DST, *r.split('/')))
-        for r, _ in items
-    }
+    # 哈希在上面逐个文件比对时已经算过，这里不再重复扫一遍。
     with open(os.path.join(DST, 'shell_hashes.json'), 'w', encoding='utf-8') as f:
         json.dump({'schema': 1, 'version': version, 'hashes': hashes},
                   f, ensure_ascii=False, separators=(',', ':'), sort_keys=True)
 
     print('legacy-web: %s' % SRC)
     print('shell     : %s' % DST)
-    print('随包文件  : %d 个 / %.2f MB' % (len(items), total / 1024 / 1024))
+    print('随包文件  : %d 个 / %.2f MB（本次拷贝 %d 个）'
+          % (len(items), total / 1024 / 1024, copied))
     print('数据版本  : %s' % version)
     print('基线哈希  : %d 条 -> shell_hashes.json' % len(hashes))
     print('镜像清理  : %d 个残留文件' % stale)
