@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 主题底色跟 style.css 的 --paper 一致；系统栏透明，内容延伸到状态栏/导航栏
-         后面，安全区由页面自己的 --sb-top / --sb-bottom 避让
+    <!-- 主题底色跟 style.css 的 paper 变量一致；系统栏透明，内容延伸到状态栏/导航栏
+         后面，安全区由页面自己的 sb-top / sb-bottom 变量避让
          （壳通过 window.__sgsShellInsets 把真实高度喂进去）。 -->
 
     <!-- 启动窗口：Flutter 引擎首帧之前显示 -->
