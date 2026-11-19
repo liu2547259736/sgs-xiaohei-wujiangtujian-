@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 启动窗口底色。与 style.css 里 --paper 同值，避免 Android 12 起
+         的 SplashScreen 到 Flutter 首帧之间闪一块纯白/纯黑。 -->
+    <color name="launch_background">#FFF7F3EC</color>
+</resources>

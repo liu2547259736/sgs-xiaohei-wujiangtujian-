@@ -175,9 +175,10 @@ void main() {
     // 随包是旧页面，覆盖层是新页面：server 必须优先返回新内容。
     final server = ShellServer(
       dataDir: overlay,
-      // 关掉账号地址注入：这里断言的是「覆盖层新页面原样返回」，
+      // 关掉账号地址与宿主桥注入：这里断言的是「覆盖层新页面原样返回」，
       // 注入属于壳的另一层行为，由 shell_api_base_test 单独锁。
       apiBase: '',
+      injectHost: false,
       assets: ShellAssets.fake(<String, Uint8List>{
         'index.html': oldIndex,
         'style.css': css,

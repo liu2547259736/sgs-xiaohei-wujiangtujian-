@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 夜间：与 style.css 里 html[data-theme="ink"] 的 --paper 同值 -->
+    <color name="launch_background">#FF191612</color>
+</resources>

@@ -5,7 +5,11 @@
         android:label="三国杀武将图鉴"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="true"
+        android:hardwareAccelerated="true"
+        android:largeHeap="true">
+        <!-- largeHeap：随包 7000+ 张 webp + WebView 图像解码缓存，
+             默认堆在低端机容易频繁 GC，表现就是滚动掉帧。 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

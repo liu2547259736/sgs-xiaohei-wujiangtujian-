@@ -23,12 +23,14 @@ class ShellServer {
   /// [skinBase] 仅供测试注入；不传则用 Env.skinCdnBase。
   /// [preferredPort] 仅供测试注入；不传则用 Env.shellPort（生产必须固定）。
   /// [apiBase] 仅供测试注入；不传则读应用支持目录的 sgs_api_base.txt，再退回 Env.backendBase。
+  /// [injectHost] 仅供测试关闭宿主桥注入，用来断言「页面原样返回」。
   ShellServer({
     Directory? dataDir,
     ShellAssets? assets,
     String? skinBase,
     int? preferredPort,
     String? apiBase,
+    bool? injectHost,
     this.onCheckUpdate,
   }) {
     _dataDir = dataDir;
@@ -36,6 +38,7 @@ class ShellServer {
     _skinBaseOverride = skinBase;
     _preferredPort = preferredPort ?? Env.shellPort;
     _apiBaseOverride = apiBase;
+    _injectHost = injectHost ?? true;
   }
 
   HttpServer? _server;
@@ -43,8 +46,14 @@ class ShellServer {
   Directory? _dataDir;
   String? _skinBaseOverride;
   String? _apiBaseOverride;
+  bool _injectHost = true;
   int _preferredPort = Env.shellPort;
   String _apiBase = '';
+
+  /// 系统当前是否深色。原页面在 App 内以壳为权威来源（不看 WebView 的媒体查询），
+  /// 启动注入时要带上真实值，否则深色系统下会先按浅色渲染一帧。
+  /// 运行期变化由 ShellApp 通过 `window.__sgsShellDark()` 通知页面重取色。
+  bool systemDark = false;
 
   /// 「检测更新」按钮的桥。由壳注入：dry=1 只查不下载，dry=0 真下载。
   /// 返回体直接 jsonEncode 给页面脚本。不传时（测试 / 纯静态）不拦截路由，
@@ -284,22 +293,105 @@ class ShellServer {
 ''';
 
   Future<void> _send(HttpRequest req, String rel, List<int> bytes) async {
-    // 入口页做两处内存注入（磁盘上的 index.html 一个字节都不动）：
-    //   1. <head> 里塞账号服务器地址 —— 必须早于 app.js，否则 initAuth() 已经跑完，
+    // 入口页做三处内存注入（磁盘上的 index.html 一个字节都不动）：
+    //   1. <head> 里塞宿主桥 window.SGSHost —— 原页面早就写好了这套契约
+    //      （isOffline / isSystemDark / setTheme），只是 Flutter 壳一直没实现。
+    //      必须早于 app.js：它在脚本开头就把 SGSHost 取成常量了。
+    //   2. <head> 里塞账号服务器地址 —— 同样必须早于 app.js，否则 initAuth() 已经跑完，
     //      CloudAuth 会以为没配服务器而整段关掉；
-    //   2. </body> 前塞「检测更新」桥。
+    //   3. </body> 前塞「检测更新」桥。
     var body = bytes;
     if (rel == kShellEntry) {
+      if (_injectHost) body = _injectHostScript(body, systemDark);
       body = _injectApiBase(body, _apiBase);
       if (onCheckUpdate != null) body = _injectProbe(body);
     }
     req.response.statusCode = HttpStatus.ok;
     req.response.headers.contentType = _mime(rel);
-    req.response.headers
-        .add('Cache-Control', 'no-cache');
+    req.response.headers.add('Cache-Control', _cacheControl(rel));
     req.response.add(body);
     await req.response.close();
   }
+
+  /// 静态资源的缓存策略。
+  ///
+  /// 原来一律 `no-cache`（每次都要回源），等于每张图每次滚动都要打一次本地服务、
+  /// 再走一遍 [ShellAssets.read]。带 `?v=`/`?iv=` 的资源本来就是不可变的，
+  /// 给长缓存；入口页与 JSON 数据必须每次校验（覆盖层更新后会立刻变）。
+  static String _cacheControl(String rel) {
+    if (rel == kShellEntry) return 'no-cache';
+    final ext = rel.split('.').last.toLowerCase();
+    const immutable = <String>{
+      'webp', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'ico',
+      'woff', 'woff2', 'ttf', 'otf', 'mp3', 'ogg', 'mp4',
+    };
+    // 一天：图片/字体/音频随包不变，覆盖层更新靠 URL 上的 ?iv=/?v= 换键。
+    if (immutable.contains(ext)) return 'public, max-age=86400';
+    return 'no-cache';
+  }
+
+  static const String _hostMarker = '/*sgs-shell-host*/';
+
+  /// 在 `<head>` 后注入宿主桥 shim。
+  ///
+  /// 原页面定义了一套「网页 → 壳」的同步契约（见 app.js 的 `HOST`）：
+  ///   · `isOffline()`    —— 资源全内置，资讯同步按钮降级成「离线版」
+  ///   · `isSystemDark()` —— 系统深浅色以壳为准（manifest 声明了 configUIMode，
+  ///                         Activity 不重建，WebView 的媒体查询不保证重新求值）
+  ///   · `setTheme(t)`    —— 页面把实际主题回报，壳据此染系统栏底色 + 图标明暗
+  /// 这里用同步 JS 对象实现前两个（页面是同步调用，JS channel 那种异步
+  /// postMessage 拿不到返回值），第三个转成 channel 消息交给 Dart。
+  static Uint8List _injectHostScript(List<int> bytes, bool dark) {
+    final html = utf8.decode(bytes, allowMalformed: true);
+    if (html.contains(_hostMarker)) return Uint8List.fromList(bytes);
+    final tag = '<script>$_hostMarker\n${_hostJs(dark)}\n</script>';
+    final at = html.indexOf('<head>');
+    final out = at < 0 ? '$tag$html' : html.replaceRange(at + 6, at + 6, tag);
+    return Uint8List.fromList(utf8.encode(out));
+  }
+
+  static String _hostJs(bool dark) => '''
+(function(){
+  var S = window.__SGS_SHELL = { dark: ${dark ? 1 : 0}, top: 0, bottom: 0, theme: '' };
+
+  /* 安全区：env(safe-area-inset-*) 在 Android WebView 上恒为 0，
+     页面用 max(env(), --host-inset-*) 兜底，所以壳必须把真实 WindowInsets 喂进去。
+     这里轮询等待 __sgsSetInsets 出现 —— 它定义在页面主脚本里，比本段晚。 */
+  function applyInsets(){
+    if (typeof window.__sgsSetInsets !== 'function') return false;
+    window.__sgsSetInsets(S.top, S.bottom);
+    return true;
+  }
+  var tries = 0;
+  function waitInsets(){
+    if (applyInsets()) return;
+    if (tries++ > 120) return;           /* 6 秒仍没等到就放弃，页面还有 16px 兜底留白 */
+    setTimeout(waitInsets, 50);
+  }
+  window.__sgsShellInsets = function(top, bottom){
+    S.top = Number(top) || 0;
+    S.bottom = Number(bottom) || 0;
+    tries = 0;
+    waitInsets();
+  };
+  /* 系统深浅色切换：页面在 auto 模式下重新取色 */
+  window.__sgsShellDark = function(dark){
+    S.dark = dark ? 1 : 0;
+    if (typeof window.__sgsSysTheme === 'function') window.__sgsSysTheme();
+  };
+
+  window.SGSHost = {
+    isOffline: function(){ return '1'; },
+    isSystemDark: function(){ return S.dark ? '1' : '0'; },
+    setTheme: function(t){
+      S.theme = String(t || '');
+      try { if (window.SgsHostTheme) window.SgsHostTheme.postMessage(S.theme); } catch(e){}
+    }
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', waitInsets);
+  else waitInsets();
+})();''';
 
   static const String _apiBaseMarker = '/*sgs-shell-api-base*/';
 

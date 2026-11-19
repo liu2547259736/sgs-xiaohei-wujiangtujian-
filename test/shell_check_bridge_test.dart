@@ -98,8 +98,10 @@ void main() {
   });
 
   test('没有注入桥时：页面原样，控制面明确回 unsupported', () async {
-    // apiBase: '' —— 断言的是「没桥就没任何注入」，账号地址注入不属于这条用例
-    final server = ShellServer(assets: _assets(), apiBase: '');
+    // apiBase: '' + injectHost: false —— 这条用例断言的是「没桥就没任何注入」，
+    // 账号地址与宿主桥注入都属于壳的另一层行为，由各自的用例单独锁。
+    final server =
+        ShellServer(assets: _assets(), apiBase: '', injectHost: false);
     final port = await server.start();
     addTearDown(server.stop);
 

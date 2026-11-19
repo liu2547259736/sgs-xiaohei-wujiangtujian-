@@ -40,7 +40,21 @@ class _ShellAppState extends State<ShellApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // 注入宿主桥时要带上真实的系统深浅色，否则深色系统下页面会先按浅色渲染一帧。
+    _server.systemDark = _systemDark;
     _boot();
+  }
+
+  bool get _systemDark =>
+      WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+      Brightness.dark;
+
+  /// 系统深浅色变化：记住给下次注入用，并让外层底色（WebView 之外的加载/报错页）
+  /// 立刻跟着变。当前页面里的取色由 MobileWebView 通知，不重复处理。
+  @override
+  void didChangePlatformBrightness() {
+    _server.systemDark = _systemDark;
+    if (mounted) setState(() {});
   }
 
   @override
@@ -125,11 +139,15 @@ class _ShellAppState extends State<ShellApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // 全屏后状态栏/导航栏是透明的，透上来的是这里 —— 跟着系统深浅色走，
+    // 避免深色系统下启动瞬间闪一块米白。页面自己的配色仍由 app.js 决定。
+    final dark = _systemDark;
     return MaterialApp(
       title: '三国杀武将图鉴',
       debugShowCheckedModeBanner: false,
       home: Scaffold(
-        backgroundColor: const Color(0xFFF7F3EC),
+        backgroundColor:
+            dark ? const Color(0xFF191612) : const Color(0xFFF7F3EC),
         body: _body(),
       ),
     );

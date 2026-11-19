@@ -36,6 +36,17 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    androidResources {
+        // 随包资源是 7000+ 张 webp（都是已压缩格式）加字体、音频。
+        // aapt 默认会把 assets 再 deflate 一遍，代价是每次 rootBundle.load 都得
+        // inflate 解压 —— 滚动时几百张图依次解压，正是掉帧的一个来源。
+        // 原样打包后 Android 可以直接按偏移读，不需要解压；这些格式本身已压缩，
+        // 跳过 deflate 对 APK 体积几乎没有影响。
+        noCompress.addAll(
+            listOf("webp", "woff", "woff2", "ttf", "otf", "mp3", "ogg", "mp4")
+        )
+    }
 }
 
 kotlin {
